@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign Subjects - ADHIYAMAAN Attendance System</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f0f0f;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #2d2d2d;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+
+<body class="bg-[#0f0f0f]">
+    <div class="max-w-md w-full p-6 card">
+        <h1 class="text-2xl font-bold mb-4 text-center">Assign Subjects to {{ teacher.full_name }}</h1>
+
+        <form action="{{ url_for('assign_subjects_to_teacher') }}" method="POST" class="space-y-4">
+            <input type="hidden" name="teacher_id" value="{{ teacher.id }}">
+
+            <div class="card p-4 space-y-2" style="max-height: 400px; overflow-y: auto;">
+                {% for subject in all_subjects %}
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" name="subjects" value="{{ subject }}"
+                        class="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-700 rounded" {% if subject in
+                        assigned_subjects %}checked{% endif %}>
+                    <span>{{ subject }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">
+                Save Assignments
+            </button>
+        </form>
+    </div>
+</body>
+
+</html>

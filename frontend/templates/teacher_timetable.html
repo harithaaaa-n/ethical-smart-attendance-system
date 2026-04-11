@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}My Timetable - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}My Timetable{% endblock %}
+{% block subheader %}Your weekly schedule{% endblock %}
+
+{% block content %}
+<style>
+    .subject-pill {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        text-align: center;
+        width: 100%;
+    }
+
+    .class-label {
+        font-size: 0.70rem;
+        color: var(--text-muted, #6b7280);
+        text-align: center;
+    }
+</style>
+
+<div class="max-w-6xl mx-auto">
+    <!-- Standardized Table Layout for consistency and responsiveness -->
+    <div class="card overflow-hidden">
+        <div class="overflow-x-auto p-4">
+            <table class="w-full border-collapse border border-gray-800/50">
+                <thead>
+                    <tr class="bg-gray-800/20">
+                        <th class="w-24 text-center p-3 border border-gray-800/50">Day</th>
+                        {% for p in timings %}
+                        <th class="text-center p-3 border border-gray-800/50">
+                            <div class="flex flex-col">
+                                <span>P{{ p.period_no }}</span>
+                                <span class="text-[10px] font-normal opacity-70">
+                                    {{ p.start_time.strftime('%I:%M %p') if p.start_time is defined and p.start_time is
+                                    not string else p.start_time }}
+                                </span>
+                            </div>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] %}
+                    {% for day in days %}
+                    <tr>
+                        <td class="font-bold text-center border border-gray-800/50 bg-gray-800/10">{{ day[:3] }}</td>
+                        {% for p in timings %}
+                        <!-- Find Slot -->
+                        {% set ns = namespace(found=None) %}
+                        {% for slot in current_entries %}
+                        {% if slot.day == day and slot.period_no == p.period_no %}
+                        {% set ns.found = slot %}
+                        {% endif %}
+                        {% endfor %}
+
+                        <td class="text-center p-3 align-middle border border-gray-800/30">
+                            {% if ns.found %}
+                            <div class="subject-pill">{{ ns.found.subject_name }}</div>
+                            <div class="class-label">
+                                {{ ns.found.department }}<br>
+                                {{ ns.found.batch_year }} (S{{ ns.found.semester }}{{ ns.found.section }})
+                            </div>
+                            {% else %}
+                            <div class="text-gray-800 text-xl font-thin">-</div>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

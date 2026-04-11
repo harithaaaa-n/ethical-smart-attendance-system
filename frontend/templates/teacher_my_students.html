@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block header %}My Students{% endblock %}
+{% block subheader %}View students in your allocated classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Filter Card -->
+    <div class="card p-6 border-l-4 border-blue-500">
+        <form action="{{ url_for('teacher_my_students') }}" method="get"
+            class="flex flex-col md:flex-row items-end gap-3 w-full">
+
+            <div class="w-full md:w-1/5">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Department</label>
+                <select name="department" required
+                    class="bg-gray-700 text-white rounded px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" disabled selected>-- Select Dept --</option>
+                    {# Extract unique departments from allocated classes #}
+                    {% set unique_depts = [] %}
+                    {% for cls in classes %}
+                    {% if cls.department not in unique_depts %}
+                    {% set _ = unique_depts.append(cls.department) %}
+                    <option value="{{ cls.department }}" {% if selected_dept==cls.department %}selected{% endif %}>{{
+                        cls.department }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="w-full md:w-1/5">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Semester</label>
+                <select name="semester" id="semester" required
+                    class="bg-gray-700 text-white rounded px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" disabled selected>-- Select Sem --</option>
+                    {% for sem in semesters %}
+                    <option value="{{ sem }}" {% if selected_semester|string==sem|string %}selected{% endif %}>Sem {{
+                        sem }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="w-full md:w-1/5">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Year (Auto)</label>
+                <input type="text" id="year_display" readonly placeholder="Auto"
+                    class="bg-gray-800 text-gray-400 rounded px-4 py-2 w-full border border-gray-600 cursor-not-allowed select-none">
+                <input type="hidden" name="year" id="year" value="{{ selected_year or '' }}">
+            </div>
+
+            <div class="w-full md:w-1/5">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Batch (Ref)</label>
+                <select name="batch_year" id="batch_year"
+                    class="bg-gray-700 text-white rounded px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" selected>-- All Batches --</option>
+                    {% for batch in batches %}
+                    <option value="{{ batch.name }}" {% if selected_batch==batch.name %}selected{% endif %}>{{
+                        batch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="w-full md:w-auto flex-1">
+                <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium transition-colors w-full h-[42px]">
+                    View Students
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Student List -->
+    {% if students is not none %}
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+            <h3 class="font-bold text-white">
+                Students in {{ selected_dept }} - Year {{ selected_year }}
+            </h3>
+            <span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">{{ students|length }} Students</span>
+        </div>
+
+        {% if students %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-gray-700/50 text-gray-400">
+                    <tr>
+                        <th class="px-6 py-3 font-medium">Roll No</th>
+                        <th class="px-6 py-3 font-medium">Name</th>
+                        <th class="px-6 py-3 font-medium">Department</th>
+                        <th class="px-6 py-3 font-medium">Year</th>
+                        <th class="px-6 py-3 font-medium">Batch</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for s in students %}
+                    <tr class="hover:bg-gray-700/30 transition-colors">
+                        <td class="px-6 py-4 text-gray-300 font-mono">
+                            {{ s.roll_number }}
+                        </td>
+                        <td class="px-6 py-4 text-white font-medium">
+                            {{ s.full_name }}
+                        </td>
+                        <td class="px-6 py-4 text-gray-400">
+                            {{ s.department }}
+                        </td>
+                        <td class="px-6 py-4 text-gray-400">
+                            {{ s.year }}
+                        </td>
+                        <td class="px-6 py-4 text-gray-400">
+                            {{ s.batch_year }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-gray-500">
+            No students found in this class.
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const semesterSelect = document.getElementById('semester');
+        const batchSelect = document.getElementById('batch_year');
+        const yearDisplay = document.getElementById('year_display');
+        const yearHidden = document.getElementById('year');
+
+        function updateYearFromSemester() {
+            const sem = semesterSelect.value;
+            if (sem) {
+                const year = Math.ceil(parseInt(sem) / 2);
+                yearDisplay.value = `Year ${year}`;
+                yearHidden.value = year;
+            }
+        }
+
+        // Secondary / Fallback: Update from Batch if semester not selected
+        function updateYearFromBatch() {
+            if (semesterSelect.value) return; // Semester takes priority
+
+            const batchValue = batchSelect.value;
+            if (!batchValue) return;
+
+            let startYear = 0;
+            if (batchValue.includes('-')) {
+                startYear = parseInt(batchValue.split('-')[0]);
+            } else if (batchValue.length === 4) {
+                startYear = parseInt(batchValue);
+            }
+
+            if (!isNaN(startYear) && startYear > 0) {
+                const today = new Date();
+                const currentMonth = today.getMonth() + 1;
+                const currentYear = today.getFullYear();
+                const effectiveAcademicYear = currentMonth >= 6 ? currentYear : currentYear - 1;
+                let year = effectiveAcademicYear - startYear + 1;
+                if (year < 1) year = 1;
+                if (year > 4) year = 4;
+
+                yearDisplay.value = `Year ${year}`;
+                yearHidden.value = year;
+            }
+        }
+
+        if (semesterSelect) {
+            semesterSelect.addEventListener('change', updateYearFromSemester);
+        }
+
+        if (batchSelect) {
+            batchSelect.addEventListener('change', updateYearFromBatch);
+        }
+
+        // Run initially
+        if (semesterSelect && semesterSelect.value) {
+            updateYearFromSemester();
+        } else if (batchSelect && batchSelect.value) {
+            updateYearFromBatch();
+        }
+    });
+</script>
+{% endblock %}

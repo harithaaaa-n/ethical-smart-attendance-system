@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Summary - ADHIYAMAAN Attendance</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+
+            .no-print {
+                display: none;
+            }
+
+            .card {
+                border: none;
+                background: white;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-white min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-8 no-print">
+            <h1 class="text-3xl font-bold">Attendance Summary</h1>
+            <div class="space-x-4">
+                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">
+                    <i class="fas fa-print"></i> Print PDF
+                </button>
+                <a href="{{ url_for('admin_dashboard') }}" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">
+                    Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Header Info -->
+        <div class="card bg-gray-800 p-6 rounded-xl mb-6 shadow-lg">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <span class="text-gray-400 block text-sm">Date</span>
+                    <span class="text-xl font-semibold">{{ date }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-400 block text-sm">Subject</span>
+                    <span class="text-xl font-semibold">{{ subject }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-400 block text-sm">Hour</span>
+                    <span class="text-xl font-semibold">{{ hour }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-400 block text-sm">Batch</span>
+                    <span class="text-xl font-semibold">{{ department }} - {{ year }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-4 gap-6 mb-8 text-center">
+            <div class="bg-gray-800 p-6 rounded-xl border-l-4 border-blue-500">
+                <h3 class="text-gray-400 text-sm uppercase">Total Students</h3>
+                <p class="text-4xl font-bold mt-2">{{ total }}</p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border-l-4 border-green-500">
+                <h3 class="text-gray-400 text-sm uppercase">Present</h3>
+                <p class="text-4xl font-bold mt-2 text-green-400">{{ present_count }}</p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border-l-4 border-red-500">
+                <h3 class="text-gray-400 text-sm uppercase">Absent</h3>
+                <p class="text-4xl font-bold mt-2 text-red-400">{{ absent_count }}</p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border-l-4 border-yellow-500">
+                <h3 class="text-gray-400 text-sm uppercase">OD</h3>
+                <p class="text-4xl font-bold mt-2 text-yellow-400">{{ od_count }}</p>
+            </div>
+        </div>
+
+        <!-- Absent List -->
+        <div class="bg-gray-800 rounded-xl overflow-hidden shadow-lg mb-8">
+            <div class="p-4 bg-gray-750 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-red-400">Absent Students</h2>
+                <span class="bg-red-900 text-red-200 text-xs px-2 py-1 rounded">{{ absent_count }}</span>
+            </div>
+            <table class="w-full text-left">
+                <thead class="bg-gray-900 text-gray-400">
+                    <tr>
+                        <th class="p-4">Roll Number</th>
+                        <th class="p-4">Name</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for student in absent %}
+                    <tr class="hover:bg-gray-700">
+                        <td class="p-4 font-mono">{{ student.roll_number }}</td>
+                        <td class="p-4">{{ student.full_name }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2" class="p-8 text-center text-gray-500">All students present! 🎉</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Present List (Collapsible or just secondary) -->
+        <div class="bg-gray-800 rounded-xl overflow-hidden shadow-lg">
+            <div class="p-4 bg-gray-750 border-b border-gray-700">
+                <h2 class="text-xl font-semibold text-green-400">Present Students</h2>
+            </div>
+            <table class="w-full text-left">
+                <thead class="bg-gray-900 text-gray-400">
+                    <tr>
+                        <th class="p-4">Roll Number</th>
+                        <th class="p-4">Name</th>
+                        <th class="p-4">Time</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for student in present %}
+                    <tr class="hover:bg-gray-700">
+                        <td class="p-4 font-mono">{{ student.roll_number }}</td>
+                        <td class="p-4">{{ student.full_name }}</td>
+                        <td class="p-4 text-sm text-gray-400">{{ student.timestamp.strftime('%H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</body>
+
+</html>

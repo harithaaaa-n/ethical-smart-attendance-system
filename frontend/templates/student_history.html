@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance History - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Attendance History{% endblock %}
+{% block subheader %}View your detailed attendance records and reports{% endblock %}
+
+{% block content %}
+<style>
+    /* Tab Styling */
+    .tabs-container {
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px;
+    }
+
+    .tab-btn {
+        padding: 12px 20px;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+        border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn:hover {
+        color: var(--text-heading);
+        background-color: var(--sidebar-active-bg);
+        /* subtle hover bg */
+    }
+
+    .tab-btn.active {
+        color: var(--accent-color);
+        border-bottom: 2px solid var(--accent-color);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Table Styling */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .data-table th {
+        background-color: var(--table-header-bg);
+        font-weight: 600;
+        color: var(--text-heading);
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+    }
+
+    .data-table tr:hover {
+        background-color: var(--table-row-hover);
+    }
+
+    .data-table td {
+        color: var(--text-primary);
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .status-present {
+        background-color: #059669;
+        /* Emerald 600 */
+        color: #fff;
+    }
+
+    .status-absent {
+        background-color: #e11d48;
+        /* Rose 600 */
+        color: #fff;
+    }
+
+    .status-od {
+        background-color: #0284c7;
+        /* Sky 600 */
+        color: #fff;
+    }
+</style>
+
+<div class="max-w-6xl mx-auto">
+
+    <!-- Tabs Header -->
+    <div class="tabs-container flex space-x-2">
+        <button class="tab-btn active" onclick="showTab('hourly')">Hourly History</button>
+        <button class="tab-btn" onclick="showTab('subject')">Subject Report</button>
+        <button class="tab-btn" onclick="showTab('weekly')">Weekly Report</button>
+        <button class="tab-btn" onclick="showTab('monthly')">Monthly Report</button>
+    </div>
+
+    <!-- Tab 1: Hourly Breakdown -->
+    <div id="hourly" class="tab-content active">
+        <div class="card p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">Hourly Log (Last 6 Months)</h3>
+                <span class="text-xs text-gray-500 bg-[#2d2d2d] px-3 py-1 rounded-full">{{ history|length }}
+                    Records</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time / Period</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if history %}
+                        {% for record in history %}
+                        <tr>
+                            <td>
+                                <div class="font-medium">
+                                    {% if record.timestamp.strftime is defined %}
+                                    {{ record.timestamp.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                    {{ record.timestamp | string | replace(' 00:00:00', '') }}
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-gray-400 text-xs text-center">
+                                    {% if record.period %}
+                                    P{{ record.period }}
+                                    {% elif record.period_no %}
+                                    P{{ record.period_no }}
+                                    {% elif record.timestamp.strftime is defined %}
+                                    {{ record.timestamp.strftime('%I:%M %p') }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>{{ record.subject }}</td>
+                            <td>
+                                {% if record.status == 'Present' %}
+                                <span class="status-badge status-present">Present</span>
+                                {% elif record.status == 'Absent' %}
+                                {% set g_status = grievance_map.get(record.id) %}
+                                {% if g_status %}
+                                <span
+                                    class="px-2 py-1 rounded text-xs font-bold bg-yellow-600/20 text-yellow-400 border border-yellow-600/50">
+                                    Grievance: {{ g_status }}
+                                </span>
+                                {% else %}
+                                <span class="status-badge status-absent mr-2">Absent</span>
+                                <button data-id="{{ record.id }}" data-subject="{{ record.subject }}"
+                                    data-date="{{ record.timestamp }}"
+                                    onclick="openGrievanceModal(this.dataset.id, this.dataset.subject, this.dataset.date)"
+                                    class="text-xs text-blue-400 hover:text-blue-300 underline">
+                                    Raise Grievance
+                                </button>
+                                {% endif %}
+                                {% elif record.status == 'OD' %}
+                                <span class="status-badge status-od">On Duty</span>
+                                {% else %}
+                                <span class="status-badge bg-gray-700 text-gray-300">{{ record.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-gray-500">No attendance records found.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Subject Report -->
+    <div id="subject" class="tab-content">
+        <div class="card p-6">
+            <h3 class="text-xl font-bold mb-6">Subject Breakdown</h3>
+            <div class="overflow-x-auto">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th class="text-center">Total Classes</th>
+                            <th class="text-center">Attended</th>
+                            <th class="text-right">Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if subject_report %}
+                        {% for subject in subject_report %}
+                        <tr>
+                            <td>
+                                <div class="font-medium text-white">{{ subject.subject }}</div>
+                            </td>
+                            <td class="text-center">{{ subject.total_classes }}</td>
+                            <td class="text-center">{{ subject.attended_classes }}</td>
+                            <td class="text-right">
+                                <div class="flex items-center justify-end space-x-2">
+                                    <div class="w-24 bg-gray-700 rounded-full h-2 overflow-hidden">
+                                        <div class="h-2 rounded-full {% if subject.percentage >= 75 %}bg-emerald-500{% elif subject.percentage >= 65 %}bg-yellow-500{% else %}bg-rose-500{% endif %}"
+                                            style="--w: {{ subject.percentage }}%; width: var(--w); text-align: right;">
+                                        </div>
+                                    </div>
+                                    <span class="font-bold w-12">{{ subject.percentage }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-gray-500">No subject data available.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: Weekly Report -->
+    <div id="weekly" class="tab-content">
+        <div class="card p-6">
+            <h3 class="text-xl font-bold mb-6">Weekly Performance</h3>
+            <div class="overflow-x-auto">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th class="text-center">Total Classes</th>
+                            <th class="text-center">Attended</th>
+                            <th class="text-right">Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if weekly_report %}
+                        {% for week in weekly_report %}
+                        <tr>
+                            <td>
+                                <div class="font-medium">{{ week.week_label }}</div>
+                            </td>
+                            <td class="text-center">{{ week.total_classes }}</td>
+                            <td class="text-center">{{ week.attended_classes }}</td>
+                            <td class="text-right">
+                                <span
+                                    class="font-bold {% if week.percentage >= 75 %}text-emerald-400{% elif week.percentage >= 65 %}text-yellow-400{% else %}text-rose-400{% endif %}">
+                                    {{ week.percentage }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-gray-500">No weekly data available.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: Monthly Report -->
+    <div id="monthly" class="tab-content">
+        <div class="card p-6">
+            <h3 class="text-xl font-bold mb-6">Monthly Summary</h3>
+            <div class="overflow-x-auto">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th class="text-center">Total Classes</th>
+                            <th class="text-center">Attended</th>
+                            <th class="text-right">Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if monthly_report %}
+                        {% for month in monthly_report %}
+                        <tr>
+                            <td>
+                                <div class="font-medium text-lg">{{ month.month_label }}</div>
+                            </td>
+                            <td class="text-center">{{ month.total_classes }}</td>
+                            <td class="text-center">{{ month.attended_classes }}</td>
+                            <td class="text-right">
+                                <div class="flex items-center justify-end space-x-2">
+                                    <div class="w-24 bg-gray-700 rounded-full h-2 overflow-hidden">
+                                        <div class="h-2 rounded-full {% if month.percentage >= 75 %}bg-emerald-500{% elif month.percentage >= 65 %}bg-yellow-500{% else %}bg-rose-500{% endif %}"
+                                            style="--w: {{ month.percentage }}%; width: var(--w); text-align: right;">
+                                        </div>
+                                    </div>
+                                    <span class="font-bold w-12">{{ month.percentage }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-gray-500">No monthly data available.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Grievance Modal -->
+<div id="grievanceModal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 border border-gray-700">
+        <h3 class="text-lg font-bold text-white mb-4">Raise Attendance Grievance</h3>
+        <form id="grievanceForm" onsubmit="submitGrievance(event)">
+            <input type="hidden" id="g_attendance_id" name="attendance_id">
+
+            <div class="mb-4">
+                <p class="text-sm text-gray-400">Subject: <span id="g_subject" class="text-white font-medium"></span>
+                </p>
+                <p class="text-sm text-gray-400">Date: <span id="g_date" class="text-white font-medium"></span></p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Reason for Grievance</label>
+                <textarea name="reason" rows="3" required placeholder="Explain why you were marked absent..."
+                    class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Optional Proof (Image/PDF)</label>
+                <input type="file" name="proof" accept="image/*,.pdf"
+                    class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeGrievanceModal()"
+                    class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white text-sm">Cancel</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm font-bold">Submit
+                    Grievance</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openGrievanceModal(id, subject, date) {
+        document.getElementById('g_attendance_id').value = id;
+        document.getElementById('g_subject').innerText = subject;
+        const d = new Date(date);
+        document.getElementById('g_date').innerText = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        document.getElementById('grievanceModal').classList.remove('hidden');
+    }
+
+    function closeGrievanceModal() {
+        document.getElementById('grievanceModal').classList.add('hidden');
+        document.getElementById('grievanceForm').reset();
+    }
+
+    async function submitGrievance(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const btn = form.querySelector('button[type="submit"]');
+
+        try {
+            btn.disabled = true;
+            btn.innerText = 'Submitting...';
+
+            const res = await fetch('/api/student/grievance/submit', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                alert('Grievance submitted successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to submit grievance.');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Submit Grievance';
+        }
+    }
+
+    function showTab(tabId) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Show selected tab
+        document.getElementById(tabId).classList.add('active');
+
+        // Activate button
+        const buttons = document.querySelectorAll('.tab-btn');
+        if (tabId === 'hourly') buttons[0].classList.add('active');
+        if (tabId === 'subject') buttons[1].classList.add('active');
+        if (tabId === 'weekly') buttons[2].classList.add('active');
+        if (tabId === 'monthly') buttons[3].classList.add('active');
+    }
+</script>
+{% endblock %}

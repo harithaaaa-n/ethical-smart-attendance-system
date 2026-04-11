@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Enroll Student - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Student Enrollment{% endblock %}
+{% block subheader %}Register new student details and biometrics{% endblock %}
+
+{% block content %}
+<!-- Active Tabs -->
+<div class="flex overflow-x-auto border-b border-[#2d2d2d] mb-8">
+    <a href="{{ url_for('admin_user_management') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-transparent text-gray-400 hover:text-white hover:bg-white/5">
+        <i class="fas fa-user-graduate mr-2"></i>Students
+    </a>
+    <a href="{{ url_for('admin_teachers') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-transparent text-gray-400 hover:text-white hover:bg-white/5">
+        <i class="fas fa-chalkboard-teacher mr-2"></i>Teachers
+    </a>
+    <a href="{{ url_for('enroll_user') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-blue-500 text-blue-500 bg-blue-500/5">
+        <i class="fas fa-user-plus mr-2"></i>Enroll Student
+    </a>
+    <a href="{{ url_for('academic.departments') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-transparent text-gray-400 hover:text-white hover:bg-white/5">
+        <i class="fas fa-university mr-2"></i>Academic Setup
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Step 1: Student Details -->
+    <div class="card p-6 border-t-4 border-t-blue-500 h-fit">
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <span class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+            Student Details
+        </h2>
+        <form id="enrollmentForm" class="flex flex-col gap-4">
+            <div>
+                <label for="full_name" class="block text-xs font-medium text-gray-400 mb-1">Full Name <span
+                        class="text-red-500">*</span></label>
+                <input type="text" id="full_name" name="full_name" required placeholder="e.g. Jane Doe"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-gray-600">
+            </div>
+            <div>
+                <label for="roll_number" class="block text-xs font-medium text-gray-400 mb-1">Roll Number <span
+                        class="text-red-500">*</span></label>
+                <input type="text" id="roll_number" name="roll_number" required placeholder="e.g. CS101"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-gray-600">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="department" class="block text-xs font-medium text-gray-400 mb-1">Department <span
+                            class="text-red-500">*</span></label>
+                    <select id="department" name="department" required
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <option value="">Select Dept</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept }}">{{ dept }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="batch_year" class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                            class="text-red-500">*</span> <span class="text-xs text-gray-500">(YYYY-YYYY)</span></label>
+                    <input type="text" id="batch_year" name="batch_year" required placeholder="2024-2028"
+                        pattern="\d{4}-\d{4}"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-gray-600">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="year_display" class="block text-xs font-medium text-gray-400 mb-1">Year (Auto) <span
+                            class="text-red-500">*</span></label>
+                    <input type="text" id="year_display" readonly placeholder="Auto-calculated"
+                        class="w-full p-3 bg-[#1a1a1a] border border-[#2d2d2d] rounded-lg text-gray-400 cursor-not-allowed outline-none select-none">
+                    <input type="hidden" id="year" name="year">
+                </div>
+                <div>
+                    <label for="semester" class="block text-xs font-medium text-gray-400 mb-1">Semester <span
+                            class="text-red-500">*</span></label>
+                    <select id="semester" name="semester" required
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <option value="">Select Batch First</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="username" class="block text-xs font-medium text-gray-400 mb-1">Username <span
+                            class="text-red-500">*</span></label>
+                    <input type="text" id="username" name="username" required placeholder="For login"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-gray-600">
+                </div>
+                <div>
+                    <label for="password" class="block text-xs font-medium text-gray-400 mb-1">Password <span
+                            class="text-red-500">*</span></label>
+                    <input type="password" id="password" name="password" required placeholder="••••••"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-gray-600">
+                </div>
+            </div>
+
+            <button type="submit" id="submitDetailsBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5 mt-2">
+                Next: Face Enrollment <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </form>
+    </div>
+
+    <!-- Step 2: Face Enrollment -->
+    <div id="faceEnrollmentCard" class="card p-6 border-t-4 border-t-purple-500 hidden h-fit relative">
+        <div class="absolute inset-0 bg-[#0f0f0f]/80 z-10 flex flex-col items-center justify-center text-center p-6 backdrop-blur-sm"
+            id="overlayBlocker">
+            <i class="fas fa-lock text-4xl text-gray-600 mb-4"></i>
+            <p class="text-gray-400 font-medium">Complete Step 1 to unlock biometric enrollment.</p>
+        </div>
+
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <span
+                class="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+            Biometric Registration
+        </h2>
+
+        <div
+            class="bg-black rounded-lg overflow-hidden border border-[#333] mb-4 relative aspect-video flex items-center justify-center">
+            <img id="enrollmentVideo" class="max-w-full max-h-full object-contain" src="" alt="Webcam Feed">
+            <div
+                class="absolute inset-0 border-2 border-dashed border-purple-500/50 m-8 rounded-lg pointer-events-none flex items-center justify-center">
+                <p class="text-purple-500/50 text-xs font-mono uppercase tracking-widest">Face Zone</p>
+            </div>
+        </div>
+
+        <div id="faceStatus" class="p-3 mb-4 rounded-lg hidden text-sm font-medium text-center"></div>
+
+        <button id="captureFaceBtn"
+            class="w-full bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-purple-900/20 transition-all hover:-translate-y-0.5 mb-4 group">
+            <i class="fas fa-camera mr-2 group-hover:scale-110 transition-transform"></i> Capture Face
+        </button>
+
+        <a href="{{ url_for('admin_user_management', tab='students') }}" id="saveExitBtn"
+            class="block w-full text-center bg-[#2d2d2d] hover:bg-[#333] text-gray-300 hover:text-white p-3 rounded-lg font-medium transition-colors opacity-50 pointer-events-none">
+            Save & Exit Enrollment
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('enrollmentForm');
+        const faceEnrollmentCard = document.getElementById('faceEnrollmentCard');
+        const overlayBlocker = document.getElementById('overlayBlocker');
+        const enrollmentVideo = document.getElementById('enrollmentVideo');
+        const captureFaceBtn = document.getElementById('captureFaceBtn');
+        const faceStatus = document.getElementById('faceStatus');
+        const saveExitBtn = document.getElementById('saveExitBtn');
+
+        // Batch and Year Logic
+        const batchInput = document.getElementById('batch_year');
+        const yearDisplay = document.getElementById('year_display');
+        const yearInput = document.getElementById('year');
+        const semesterSelect = document.getElementById('semester');
+
+        batchInput.addEventListener('input', function () {
+            const batchValue = this.value; // Expected: YYYY-YYYY
+
+            // Regex validation (basic)
+            if (/^\d{4}-\d{4}$/.test(batchValue)) {
+                const startYear = parseInt(batchValue.split('-')[0]);
+                const currentMonth = new Date().getMonth() + 1; // 1-12
+                const currentYear = new Date().getFullYear();
+
+                // Academic Year Calculation
+                // If currently Jan-June (1-6), Academic Year started previous year.
+                // If currently July-Dec (7-12), Academic Year started this year.
+                const academicYearStart = currentMonth >= 7 ? currentYear : currentYear - 1;
+
+                const yearDiff = academicYearStart - startYear + 1;
+                const calculatedYear = Math.max(1, yearDiff); // Minimum Year 1
+
+                yearDisplay.value = `Year ${calculatedYear}`;
+                yearInput.value = calculatedYear;
+
+                // Update Semester Options
+                updateSemesterOptions(calculatedYear);
+            } else {
+                yearDisplay.value = '';
+                yearInput.value = '';
+                semesterSelect.innerHTML = '<option value="">Select Batch First</option>';
+            }
+        });
+
+        function updateSemesterOptions(year) {
+            semesterSelect.innerHTML = ''; // Clear existing
+
+            let semOptions = [];
+            // year 1 -> sem 1,2
+            // year 2 -> sem 3,4
+            // year 3 -> sem 5,6
+            // year 4 -> sem 7,8
+            const startSem = (year - 1) * 2 + 1;
+            const endSem = startSem + 1;
+
+            semOptions.push(startSem, endSem);
+
+            // Set default (odd semester usually for start of year, but logic depends on month? 
+            // User said: year 1 -> sem 1,2 (default sem 1). Keep it simple)
+
+            semOptions.forEach((sem, index) => {
+                const option = document.createElement('option');
+                option.value = sem;
+                option.textContent = `Semester ${sem}`;
+                if (index === 0) option.selected = true;
+                semesterSelect.appendChild(option);
+            });
+        }
+
+        let studentId = null;
+        let videoReady = false;
+
+        // Wait for the video stream to load
+        enrollmentVideo.addEventListener('load', () => {
+            videoReady = true;
+            console.log("Video stream loaded.");
+        });
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitDetailsBtn');
+            const originalBtnText = submitBtn.innerHTML;
+
+            // Loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+
+            const formData = new FormData(form);
+            formData.append('role', 'student');
+
+            // Ensure derived year is sent (though backend recalc, safe to send)
+            if (yearInput.value) {
+                formData.set('year', yearInput.value);
+            }
+
+            fetch('{{ url_for("enroll_user") }}', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        studentId = data.user_id;
+
+                        // Unlock Face Step
+                        faceEnrollmentCard.classList.remove('hidden');
+                        overlayBlocker.classList.add('hidden'); // Remove blocker
+
+                        // Disable form editing
+                        Array.from(form.elements).forEach(element => element.disabled = true);
+                        submitBtn.innerHTML = '<i class="fas fa-check mr-2"></i> Saved';
+                        submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                        submitBtn.classList.add('bg-green-600', 'cursor-not-allowed');
+
+                        // Start Camera
+                        enrollmentVideo.src = `{{ url_for('enrollment_video_feed', user_id=0) }}`.replace('0', studentId);
+                    } else {
+                        alert(data.message || 'Error saving user');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Network error occurred');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                });
+        });
+
+        captureFaceBtn.addEventListener('click', function () {
+            if (!studentId) return;
+
+            // Capture logic
+            const canvas = document.createElement('canvas');
+            // Use natural dimensions if available, or current display size. 
+            // Since it's an IMG tag showing MJPEG stream, we need to capture carefully.
+            // Actually, for an IMG tag displaying a stream, we can't drawImage directly from it in some browsers securely (CORS), 
+            // BUT if it's from the same origin it works. 
+            // However, the previous code used `enrollmentVideo` which was an IMG tag, so this logic presumes valid cross-origin or same-origin.
+
+            canvas.width = enrollmentVideo.naturalWidth || 640;
+            canvas.height = enrollmentVideo.naturalHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(enrollmentVideo, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            faceStatus.textContent = 'Analyzing face...';
+            faceStatus.className = 'p-3 mb-4 rounded-lg text-sm font-medium text-center bg-blue-900/50 text-blue-200 border border-blue-800';
+            faceStatus.classList.remove('hidden');
+
+            fetch('{{ url_for("capture_face") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_id: studentId,
+                    image_data: imageData
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        faceStatus.textContent = 'Face successfully enrolled!';
+                        faceStatus.className = 'p-3 mb-4 rounded-lg text-sm font-medium text-center bg-green-900/50 text-green-200 border border-green-800';
+
+                        // Enable Save & Exit
+                        saveExitBtn.classList.remove('opacity-50', 'pointer-events-none');
+                        saveExitBtn.classList.add('bg-green-600', 'hover:bg-green-700', 'text-white');
+                        saveExitBtn.textContent = "Finish Enrollment";
+                    } else {
+                        faceStatus.textContent = data.message || 'Face detection failed';
+                        faceStatus.className = 'p-3 mb-4 rounded-lg text-sm font-medium text-center bg-red-900/50 text-red-200 border border-red-800';
+                    }
+                })
+                .catch(err => {
+                    faceStatus.textContent = 'Server error during capture';
+                    faceStatus.className = 'p-3 mb-4 rounded-lg text-sm font-medium text-center bg-red-900/50 text-red-200 border border-red-800';
+                });
+        });
+    });
+</script>
+{% endblock %}

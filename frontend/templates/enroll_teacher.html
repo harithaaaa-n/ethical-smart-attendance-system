@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'"
+        href="https://fonts.googleapis.com/css2?display=swap&family=Inter%3Awght%40400%3B500%3B700%3B900&family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
+    <title>Enroll Teacher - ADHIYAMAAN Attendance System</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f0f0f;
+            color: white;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #2d2d2d;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+
+<body class="flex flex-col min-h-screen">
+    <header class="bg-[#141414] border-b border-gray-800 p-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <a href="{{ url_for('admin_teachers') }}" class="p-2 rounded-lg hover:bg-gray-800">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h2 class="font-bold">Enroll Teacher</h2>
+        </div>
+        <a href="{{ url_for('logout') }}" class="text-red-400 hover:text-red-300">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </header>
+    <main class="flex-grow flex items-center justify-center p-6 bg-[#0f0f0f]">
+        <div class="container mx-auto max-w-lg card p-6">
+            <h1 class="text-2xl font-bold mb-4 text-center">Enroll New Teacher</h1>
+            <form action="{{ url_for('add_user') }}" method="POST" class="space-y-4">
+                <div>
+                    <label for="full_name" class="block text-sm font-medium text-gray-400">Full Name</label>
+                    <input type="text" id="full_name" name="full_name" required
+                        class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                </div>
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-400">Username</label>
+                    <input type="text" id="username" name="username" required
+                        class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-400">Password</label>
+                    <input type="password" id="password" name="password" required
+                        class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                </div>
+                <div>
+                    <label for="department" class="block text-sm font-medium text-gray-400">Department</label>
+                    <input type="text" id="department" name="department" required
+                        class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                </div>
+                <input type="hidden" name="role" value="teacher">
+                <input type="hidden" name="year" value="0">
+                <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">Add
+                    Teacher</button>
+            </form>
+        </div>
+    </main>
+</body>
+
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Attendance Report - Print View</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <style>
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            /* Official look */
+            color: black;
+            background: white;
+            margin: 0;
+            padding: 20px;
+        }
+
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid black;
+            padding-bottom: 10px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            text-transform: uppercase;
+        }
+
+        .header h2 {
+            margin: 5px 0 0;
+            font-size: 18px;
+            font-weight: normal;
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .meta-left {
+            text-align: left;
+        }
+
+        .meta-right {
+            text-align: right;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            border: 1px solid black;
+            padding: 6px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        td.center {
+            text-align: center;
+        }
+
+        .status-present {
+            /* font-weight: bold; */
+            /* Optional */
+            color: green;
+        }
+
+        .status-absent {
+            /* color: red; */
+            /* Print usually B&W, but keep standard */
+            color: red;
+        }
+
+
+        .footer {
+            margin-top: 20px;
+            font-size: 10px;
+            text-align: center;
+            border-top: 1px solid #ccc;
+            padding-top: 5px;
+        }
+
+        @media print {
+            .no-print {
+                display: none;
+            }
+
+            table {
+                page-break-inside: auto;
+            }
+
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+        }
+    </style>
+</head>
+
+<body onload="window.print()">
+
+    <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+        <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer;">Print Report</button>
+        <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer;">Close</button>
+    </div>
+
+    <div class="header">
+        <h1>Adhiyamaan Attendance System</h1>
+        <h2>Attendance Report</h2>
+    </div>
+
+    <div class="meta-info">
+        <div class="meta-left">
+            <strong>Department:</strong> {{ department }}<br>
+            <strong>Batch:</strong> {{ batch_year or 'All' }}<br>
+            <strong>Semester:</strong> {{ semester }}<br>
+            <strong>Subject:</strong> {{ subject }}
+        </div>
+        <div class="meta-right">
+            <strong>Date Range:</strong> {{ start_date.split('-')[2] }}/{{ start_date.split('-')[1] }}/{{ start_date.split('-')[0] }} to {{ end_date.split('-')[2] }}/{{ end_date.split('-')[1] }}/{{ end_date.split('-')[0] }}<br>
+            <strong>Status Filter:</strong> {{ status_filter }}<br>
+            <strong>Generated At:</strong> {{ generated_at }}<br>
+            <strong>By:</strong> {{ generated_by }}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40px;">S.No</th>
+                <th style="width: 120px;">Register Number</th>
+                <th>Student Name</th>
+                <th>Department</th>
+                <th>Batch</th>
+                <th style="width: 60px;">Sem</th>
+                <th>Date</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td class="center">{{ loop.index }}</td>
+                <td class="center">{{ log.register_number or '-' }}</td>
+                <td>{{ log.full_name }}</td>
+                <td>{{ log.department }}</td>
+                <td class="center">{{ log.batch_year }}</td>
+                <td class="center">{{ log.semester }}</td>
+                <td class="center">{{ log.timestamp.strftime('%d/%m/%Y') if log.timestamp else (start_date.split('-')[2] ~ '/' ~ start_date.split('-')[1] ~ '/' ~ start_date.split('-')[0]) }}</td>
+                <td class="center {{ 'status-present' if log.final_status == 'Present' else 'status-absent' }}">
+                    {{ log.final_status }}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if logs|length == 0 %}
+            <tr>
+                <td colspan="8" class="center" style="padding: 20px;">No records found for the selected filters.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Generated by Adhiyamaan Attendance System on {{ generated_at }}
+    </div>
+
+</body>
+
+</html>

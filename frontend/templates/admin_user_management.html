@@ -1,0 +1,809 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}User Management{% endblock %}
+{% block subheader %}View and manage all student accounts and face enrollments{% endblock %}
+
+{% block content %}
+<!-- Navigation Tabs -->
+<div class="flex overflow-x-auto border-b border-[#2d2d2d] mb-8">
+    <a href="{{ url_for('admin_user_management', tab='students') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap {% if not active_tab or active_tab == 'students' %}border-blue-500 text-blue-500 bg-blue-500/5{% else %}border-transparent text-gray-400 hover:text-white hover:bg-white/5{% endif %}">
+        <i class="fas fa-user-graduate mr-2"></i>Students
+    </a>
+    <a href="{{ url_for('admin_teachers') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-transparent text-gray-400 hover:text-white hover:bg-white/5">
+        <i class="fas fa-chalkboard-teacher mr-2"></i>Teachers
+    </a>
+
+</div>
+
+<!-- Academic Sub-Tabs -->
+{% if active_tab in ['departments', 'years', 'sections', 'subjects', 'classes', 'mapping'] %}
+<div class="flex overflow-x-auto gap-2 mb-8 pb-2">
+    {% set sub_tabs = [
+    ('departments', 'Departments'),
+    ('years', 'Years/Batches'),
+    ('sections', 'Sections'),
+    ('subjects', 'Subjects'),
+    ('classes', 'Classes'),
+    ('mapping', 'Subject Mapping')
+    ] %}
+    {% for id, label in sub_tabs %}
+    <a href="{{ url_for('academic.' + id) }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors {% if active_tab == id %}bg-blue-600 text-white shadow-lg shadow-blue-900/20{% else %}bg-[#1a1a1a] border border-[#333] text-gray-400 hover:bg-[#252525] hover:text-white{% endif %}">
+        {{ label }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if not active_tab or active_tab == 'students' %}
+<!-- Filter Section -->
+<div class="card p-6 mb-8 border-l-4 border-l-blue-500">
+    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <i class="fas fa-filter text-blue-400"></i> Select Class
+    </h3>
+    <form action="{{ url_for('admin_user_management') }}" method="GET"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        <input type="hidden" name="tab" value="students">
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">Department <span
+                    class="text-red-500">*</span></label>
+            <select name="dept_id" id="filter_dept_id" onchange="enableBatch()"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                required>
+                <option value="">Select Department</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}" {% if selected_dept_id|string==dept.id|string %}selected{% endif %}>{{
+                    dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                    class="text-red-500">*</span></label>
+            <select name="batch_year" id="filter_batch_year" onchange="onBatchChanged()"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                required>
+                <option value="">Select Batch</option>
+                {% for batch in years %}
+                <option value="{{ batch.name }}" data-start-year="{{ batch.start_year }}" {% if
+                    request.args.get('batch_year')==batch.name %}selected{% endif %}>
+                    {{ batch.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Detected Year Label (Read Only) -->
+        <div class="hidden" id="detected_year_container">
+            <label class="block text-xs font-medium text-gray-400 mb-1">Detected Year</label>
+            <div id="detected_year_display"
+                class="px-3 py-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-green-400 font-mono text-sm">
+                -
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">Semester <span
+                    class="text-red-500">*</span></label>
+            <select name="semester" id="filter_semester" onchange="updateYearFromSemester()"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                required>
+                <option value="">Select Sem</option>
+                {% if selected_semester %}
+                <option value="{{ selected_semester }}" selected>Semester {{ selected_semester }}</option>
+                {% endif %}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">Section (Optional)</label>
+            <select name="section_id"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">All / None</option>
+                {% for sec in sections %}
+                <option value="{{ sec.id }}" {% if selected_section_id|string==sec.id|string %}selected{% endif %}>{{
+                    sec.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="flex gap-2">
+            <button type="submit"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-semibold transition-all hover:translate-y-px shadow-lg shadow-blue-900/20">
+                Filter
+            </button>
+            <a href="{{ url_for('admin_user_management', tab='students') }}"
+                class="px-4 py-2.5 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 hover:text-white rounded-lg transition-colors border border-transparent hover:border-gray-600">
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if selected_dept_id %}
+<!-- Student List -->
+<div class="card p-0 overflow-hidden">
+    <div
+        class="p-6 border-b border-[#2d2d2d] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#1a1a1a]">
+        <h2 class="text-xl font-bold flex items-center gap-2">
+            <i class="fas fa-users text-gray-400"></i> Students <span
+                class="text-sm font-normal text-gray-500 bg-[#141414] px-2 py-0.5 rounded-full border border-[#2d2d2d]">{{
+                students|length }}</span>
+        </h2>
+        <div class="flex gap-3 w-full sm:w-auto">
+            <a href="{{ url_for('admin_promote_students') }}"
+                class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-lg shadow-indigo-900/20 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                <i class="fas fa-level-up-alt"></i> <span class="hidden sm:inline">Promote Students</span><span
+                    class="sm:hidden">Promote</span>
+            </a>
+            <button onclick="document.getElementById('addStudentModal').classList.remove('hidden')"
+                class="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg shadow-lg shadow-green-900/20 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                <i class="fas fa-plus"></i> <span class="hidden sm:inline">Add Student</span><span
+                    class="sm:hidden">Add</span>
+            </button>
+            <a href="{{ url_for('bulk_enrollment_page') }}"
+                class="flex-1 sm:flex-none bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 font-medium py-2 px-4 rounded-lg border border-[#333] transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-file-csv text-green-400"></i> Bulk CSV
+            </a>
+            <button onclick="document.getElementById('bulkFaceModal').classList.remove('hidden')"
+                class="flex-1 sm:flex-none bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 font-medium py-2 px-4 rounded-lg border border-[#333] transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-file-archive text-purple-400"></i> Bulk Face (ZIP)
+            </button>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="responsive-table w-full">
+            <thead>
+                <tr>
+                    <th class="cursor-pointer hover:text-blue-400 transition-colors" onclick="sortTable(0)">Name <i
+                            class="fas fa-sort text-xs ml-1 opacity-50"></i></th>
+                    <th class="cursor-pointer hover:text-blue-400 transition-colors" onclick="sortTable(1)">Register No.
+                        <i class="fas fa-sort text-xs ml-1 opacity-50"></i>
+                    </th>
+                    <th class="cursor-pointer hover:text-blue-400 transition-colors" onclick="sortTable(2)">Batch <i
+                            class="fas fa-sort text-xs ml-1 opacity-50"></i></th>
+                    <th class="cursor-pointer hover:text-blue-400 transition-colors" onclick="sortTable(3)">Year <i
+                            class="fas fa-sort text-xs ml-1 opacity-50"></i></th>
+                    <th class="cursor-pointer hover:text-blue-400 transition-colors" onclick="sortTable(4)">Sem <i
+                            class="fas fa-sort text-xs ml-1 opacity-50"></i></th>
+                    <th>Face Status</th>
+                    <th>Registered By</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if students|length == 0 %}
+                <tr>
+                    <td colspan="7" class="p-8 text-center text-gray-500 bg-[#141414]">
+                        <div class="mb-2"><i class="fas fa-user-slash text-4xl text-gray-700"></i></div>
+                        No students found matching your filters.
+                    </td>
+                </tr>
+                {% else %}
+                {% for student in students %}
+                <tr>
+                    <td data-label="Name" class="font-bold text-white">
+                        {{ student.full_name }}
+                    </td>
+                    <td data-label="Register No." class="font-mono text-gray-400 tracking-wide">
+                        {{ student.register_number or '-' }}
+                    </td>
+                    <td data-label="Batch" class="text-gray-400 text-sm">
+                        {{ student.batch_year or '-' }}
+                    </td>
+                    <td data-label="Year" class="text-gray-400">
+                        Year {{ student.year or '-' }}
+                    </td>
+                    <td data-label="Sem" class="text-blue-400 font-medium">S{{ student.semester or '-' }}</td>
+                    <td data-label="Face Status">
+                        {% if student.face_status == 'Enrolled' %}
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-900/50">
+                            <i class="fas fa-check-circle mr-1"></i> Enrolled
+                        </span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-900/30 text-red-400 border border-red-900/50">
+                            <i class="fas fa-times-circle mr-1"></i> Not Enrolled
+                        </span>
+                        {% endif %}
+                        {% if student.active_status and student.active_status != 'Active' %}
+                        <span class="ml-2 px-2 py-0.5 rounded text-xs border border-red-800 text-red-400">{{
+                            student.active_status }}</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Registered By">
+                        <div class="text-xs text-gray-300">{{ student.created_by_name or 'System' }}</div>
+                        <div class="text-[10px] text-gray-500">{{ student.created_at.strftime('%d/%m/%Y') if student.created_at else '-' }}</div>
+                    </td>
+                    <td data-label="Actions" class="text-right space-x-2">
+                        <a href="{{ url_for('edit_user', user_id=student.id) }}"
+                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 transition-colors"
+                            title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{{ url_for('enroll_student_face', user_id=student.id, return_url=url_for('admin_user_management', tab='students', dept_id=selected_dept_id, year_id=selected_year_id, section_id=selected_section_id)) }}"
+                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-900/20 text-purple-400 hover:bg-purple-900/40 transition-colors"
+                            title="Enroll Face">
+                            <i class="fas fa-camera"></i>
+                        </a>
+                        <form action="{{ url_for('delete_user_route', user_id=student.id) }}" method="post"
+                            onsubmit="return confirm('Delete user?');" class="inline-block">
+                            <button type="submit"
+                                class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 transition-colors"
+                                title="Delete">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% elif not selected_dept_id %}
+<!-- Empty State -->
+<div class="card flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-2xl">
+    <div class="w-20 h-20 bg-[#1a1a1a] rounded-full flex items-center justify-center mb-6 shadow-inner">
+        <i class="fas fa-users text-4xl text-gray-700"></i>
+    </div>
+    <h3 class="text-2xl font-bold text-white mb-2">Manage Students</h3>
+    <p class="text-gray-400 max-w-md">Please select a <span class="text-blue-400">Department</span> and <span
+            class="text-blue-400">Year</span> from the filters above to view and manage students.</p>
+</div>
+{% endif %}
+
+<script>
+    function enableBatch() {
+        // console.log("enableBatch called");
+        const deptVal = document.getElementById('filter_dept_id').value;
+        const batchInput = document.getElementById('filter_batch_year');
+        // console.log("Dept:", deptVal);
+        if (deptVal) {
+            batchInput.disabled = false;
+        } else {
+            batchInput.disabled = true;
+            batchInput.value = "";
+            document.getElementById('filter_semester').disabled = true;
+            document.getElementById('filter_semester').innerHTML = '<option value="">Select Sem</option>';
+            document.getElementById('detected_year_container').classList.add('hidden');
+        }
+    }
+
+    function getStartYearFromSelect(elementId) {
+        const el = document.getElementById(elementId);
+        if (!el || el.selectedIndex < 0) return null;
+        const option = el.options[el.selectedIndex];
+        if (!option || !option.value) return null;
+        return parseInt(option.getAttribute('data-start-year'));
+    }
+
+    function calculateYearFromBatch(startYear) {
+        if (!startYear) return null;
+        const currentMonth = new Date().getMonth() + 1;
+        const currentYear = new Date().getFullYear();
+        const academicYearStart = currentMonth >= 7 ? currentYear : currentYear - 1;
+        const yearDiff = academicYearStart - startYear + 1;
+        return Math.max(1, yearDiff);
+    }
+
+    function onBatchChanged() {
+        // 1. Enable Semester Dropdown when Batch is picked
+        const batchVal = document.getElementById('filter_batch_year').value;
+        const semSelect = document.getElementById('filter_semester');
+        const yearContainer = document.getElementById('detected_year_container');
+
+        if (batchVal) {
+            semSelect.disabled = false;
+            // Ensure 1-8 are populated if empty
+            if (semSelect.options.length <= 1) {
+                semSelect.innerHTML = '<option value="">Select Sem</option>';
+                for (let s = 1; s <= 8; s++) {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = `Semester ${s}`;
+                    semSelect.appendChild(opt);
+                }
+            }
+        } else {
+            semSelect.disabled = true;
+            semSelect.value = "";
+        }
+
+        // 2. Hide/Reset "Detected Year" until Semester is picked
+        yearContainer.classList.add('hidden');
+    }
+
+    function updateYearFromSemester() {
+        // 3. Auto-detect Year from selected Semester
+        const semVal = parseInt(document.getElementById('filter_semester').value);
+        const yearDisplay = document.getElementById('detected_year_display');
+        const yearContainer = document.getElementById('detected_year_container');
+
+        if (semVal) {
+            const calculatedYear = Math.ceil(semVal / 2);
+            yearDisplay.textContent = `Detected Year: ${calculatedYear}`;
+            yearContainer.classList.remove('hidden');
+        } else {
+            yearContainer.classList.add('hidden');
+        }
+    }
+
+    // Initial Load Check
+    document.addEventListener('DOMContentLoaded', () => {
+        const deptVal = document.getElementById('filter_dept_id').value;
+        const batchVal = document.getElementById('filter_batch_year').value;
+        const semVal = document.getElementById('filter_semester').value;
+
+        const batchEl = document.getElementById('filter_batch_year');
+        const semEl = document.getElementById('filter_semester');
+
+        // Enforce Disabled Logic on Load
+        if (deptVal) {
+            batchEl.disabled = false;
+        } else {
+            batchEl.disabled = true;
+        }
+
+        if (batchVal) {
+            onBatchChanged(); // Enable sem
+            semEl.value = "{{ selected_semester }}"; // Restore Value
+
+            // Populating 1-8 handles the value restore implicitly if we do it right
+            // But onBatchChanged wipes it if length <=1. 
+            // So we must ensure value is set AFTER population.
+            if (semEl.options.length <= 1) {
+                semEl.innerHTML = '<option value="">Select Sem</option>';
+                for (let s = 1; s <= 8; s++) {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = `Semester ${s}`;
+                    if ("{{ selected_semester }}" == s) opt.selected = true;
+                    semEl.appendChild(opt);
+                }
+            }
+
+            if ("{{ selected_semester }}") {
+                updateYearFromSemester();
+            }
+        } else {
+            semEl.disabled = true;
+        }
+    });
+</script>
+
+<!-- Add Student Modal -->
+<div id="addStudentModal"
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+    <div
+        class="bg-[#1a1a1a] p-6 sm:p-8 rounded-2xl border border-[#2d2d2d] w-full max-w-lg relative shadow-2xl transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
+        <button onclick="document.getElementById('addStudentModal').classList.add('hidden')"
+            class="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+
+        <h2 class="text-2xl font-bold mb-1 flex items-center gap-2">
+            <i class="fas fa-user-plus text-green-500"></i> Add New Student
+        </h2>
+        <p class="text-sm text-gray-400 mb-6">Create a new student account manually.</p>
+
+        <form id="addStudentForm" class="space-y-4">
+            <input type="hidden" name="dept_id" value="{{ selected_dept_id }}">
+            <input type="hidden" name="year_id" value="{{ selected_year_id }}">
+            <input type="hidden" name="filter_dept_id" value="{{ selected_dept_id }}">
+            <input type="hidden" name="filter_year_id" value="{{ selected_year_id }}">
+
+            <input type="hidden" name="year" id="derivedYearField" value="1">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Full Name</label>
+                    <input type="text" name="full_name" required
+                        class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-gray-600"
+                        placeholder="e.g. John Doe">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Register Number</label>
+                    <input type="text" name="register_number" required id="regNoInput"
+                        oninput="document.getElementById('usernameInput').value = this.value; document.getElementById('passwordInput').value = this.value;"
+                        class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Roll Number</label>
+                    <input type="text" name="roll_number" required
+                        class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Semester</label>
+                    <select name="semester" id="semInput" required onchange="updateYearBatch()"
+                        class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none">
+                        {% for i in range(1, 9) %}
+                        <option value="{{ i }}">Semester {{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Current Year</label>
+                    <input type="text" id="yearDisplay" readonly
+                        class="w-full p-2.5 bg-[#222] border border-[#2d2d2d] rounded-lg text-gray-300 outline-none cursor-not-allowed"
+                        value="Year 1">
+                </div>
+                <div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Batch</label>
+                        <select name="batch_year" id="batchInput" onchange="updateYearBatch()" required
+                            class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none">
+                            <option value="">Select Batch</option>
+                            {% for batch in years %}
+                            <option value="{{ batch.name }}" data-start-year="{{ batch.start_year }}">{{ batch.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- Removed Batch Range display, using single input now -->
+                    <input type="hidden" name="batch_start_year" id="batchStartHidden">
+                    <input type="hidden" name="batch_end_year" id="batchEndHidden">
+                    <!-- Hidden derived year sent for backend -->
+                    <input type="hidden" name="year" id="yearHiddenInput" value="1">
+
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Username (Same as Register
+                            No)</label>
+                        <input type="text" name="username" id="usernameInput" required readonly
+                            class="w-full p-2.5 bg-[#222] border border-[#2d2d2d] rounded-lg text-gray-400 outline-none cursor-not-allowed">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Password</label>
+                        <input type="password" name="password" id="passwordInput" required
+                            class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none">
+                    </div>
+                </div>
+                <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg mt-2">Create
+                    Account</button>
+        </form>
+        <div id="addStatus" class="mt-4 hidden text-sm font-medium"></div>
+    </div>
+</div>
+
+<!-- Bulk Face Upload Modal -->
+<div id="bulkFaceModal"
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+    <div
+        class="bg-[#1a1a1a] p-6 sm:p-8 rounded-2xl border border-[#2d2d2d] w-full max-w-2xl relative shadow-2xl max-h-[90vh] overflow-y-auto">
+        <button onclick="document.getElementById('bulkFaceModal').classList.add('hidden')"
+            class="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+
+        <h2 class="text-2xl font-bold mb-1 flex items-center gap-2">
+            <i class="fas fa-file-archive text-purple-500"></i> Bulk Face Enrollment
+        </h2>
+        <p class="text-sm text-gray-400 mb-6">Upload a ZIP file containing student face images.</p>
+
+        <form id="bulkFaceForm" class="space-y-6">
+            <div id="dropZoneFace"
+                class="border-2 border-dashed border-[#2d2d2d] hover:border-blue-500 bg-[#141414] rounded-xl p-8 text-center transition-colors cursor-pointer group">
+                <input type="file" name="file" id="faceZipInput" class="hidden" accept=".zip" required>
+                <div class="mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-600 group-hover:text-blue-500"></i>
+                </div>
+                <p class="text-gray-300 font-medium mb-1">Click to upload or drag and drop</p>
+                <p class="text-xs text-gray-500">ZIP files only (Max 50MB)</p>
+                <p id="faceFileName" class="text-xs text-blue-400 mt-2 font-mono break-all"></p>
+            </div>
+
+            <div class="bg-blue-900/10 border border-blue-900/30 rounded-lg p-4">
+                <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">Instructions</h4>
+                <ul class="text-xs text-gray-400 space-y-1 list-disc list-inside">
+                    <li>ZIP must contain folders named by <strong>Register Number</strong> (e.g., <code>2401...</code>).
+                    </li>
+                    <li>Each folder should contain student face images (JPG, PNG).</li>
+                    <li>Images will be processed and face embeddings generated autommatically.</li>
+                </ul>
+            </div>
+
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
+                <i class="fas fa-magic mr-2"></i> Upload & Process
+            </button>
+        </form>
+
+        <!-- Progress -->
+        <div id="bulkFaceProgress" class="hidden mt-6 text-center">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-3"></div>
+            <p class="text-gray-400 animate-pulse">Processing images... This may take a while.</p>
+        </div>
+
+        <!-- Results -->
+        <div id="bulkFaceResults" class="hidden mt-6">
+            <div class="grid grid-cols-3 gap-4 mb-4 text-center">
+                <div class="bg-green-900/20 p-3 rounded-lg border border-green-900/30">
+                    <div class="text-2xl font-bold text-green-400" id="statsSuccess">0</div>
+                    <div class="text-xs text-green-500/70 uppercase">Success</div>
+                </div>
+                <div class="bg-red-900/20 p-3 rounded-lg border border-red-900/30">
+                    <div class="text-2xl font-bold text-red-400" id="statsFailed">0</div>
+                    <div class="text-xs text-red-500/70 uppercase">Failed</div>
+                </div>
+                <div class="bg-blue-900/20 p-3 rounded-lg border border-blue-900/30">
+                    <div class="text-2xl font-bold text-blue-400" id="statsImages">0</div>
+                    <div class="text-xs text-blue-500/70 uppercase">Images</div>
+                </div>
+            </div>
+
+            <div class="max-h-60 overflow-y-auto rounded-lg border border-[#2d2d2d]">
+                <table class="w-full text-left">
+                    <thead class="bg-[#222] text-xs text-gray-500 uppercase sticky top-0">
+                        <tr>
+                            <th class="px-3 py-2">Reg No</th>
+                            <th class="px-3 py-2">Status</th>
+                            <th class="px-3 py-2">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#2d2d2d] text-sm text-gray-400" id="bulkResultBody">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="location.reload()"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg mt-4 shadow-lg transition-all">
+                <i class="fas fa-check mr-2"></i> Done & Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function sortTable(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.querySelector(".responsive-table");
+        switching = true;
+        dir = "asc";
+
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            // Loop through all table rows (except the first, which contains table headers):
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+
+                // Check if rows are empty/info row
+                if (!x || !y) continue;
+
+                var xContent = x.textContent.trim().toLowerCase();
+                var yContent = y.textContent.trim().toLowerCase();
+
+                // Numeric Sort for Register No/Year if possible
+                var xNum = parseFloat(xContent.replace(/[^0-9.]/g, ''));
+                var yNum = parseFloat(yContent.replace(/[^0-9.]/g, ''));
+
+                // Use numeric sort if both are numbers and column is RegNo(1), Year(3), Sem(4)
+                var useNum = !isNaN(xNum) && !isNaN(yNum) && (n === 1 || n === 3 || n === 4);
+
+                if (dir == "asc") {
+                    if (useNum) {
+                        if (xNum > yNum) { shouldSwitch = true; break; }
+                    } else {
+                        if (xContent > yContent) { shouldSwitch = true; break; }
+                    }
+                } else if (dir == "desc") {
+                    if (useNum) {
+                        if (xNum < yNum) { shouldSwitch = true; break; }
+                    } else {
+                        if (xContent < yContent) { shouldSwitch = true; break; }
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount++;
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+
+    function updateYearBatch() {
+        // Get start year from the select dropdown data attribute
+        const startYear = getStartYearFromSelect('batchInput');
+
+        // Semester logic can trigger updates too, so we keep an eye on it
+        // However, Year is primarily driven by Batch now.
+
+        let calculatedYear = 1;
+
+        if (startYear) {
+            // Update hidden fields
+            document.getElementById('batchStartHidden').value = startYear;
+            // Assuming 4 year batch
+            document.getElementById('batchEndHidden').value = startYear + 4;
+
+            // Calc Year
+            calculatedYear = calculateYearFromBatch(startYear);
+
+            document.getElementById('yearDisplay').value = "Year " + calculatedYear;
+            document.getElementById('yearHiddenInput').value = calculatedYear;
+            // This derivedYearField is not present in the provided HTML, but keeping it as per instruction
+            // If it's meant to be 'yearHiddenInput', then the line above already handles it.
+            // If it's a new field, it needs to be added to the HTML.
+            // For now, assuming it's a valid field that might exist elsewhere or be added.
+            document.getElementById('derivedYearField').value = calculatedYear;
+
+            // Auto-update semester options if not already manually set to something valid?
+            // Actually, we should probably RESTRICT semester options based on Year?
+            // User requirement: "semester drop down should be visible according to the year"
+            // So if Year 1, show Sem 1, 2.
+            const semSelect = document.getElementById('semInput');
+            const currentSemVal = semSelect.value;
+
+            semSelect.innerHTML = '';
+            const startSem = (calculatedYear - 1) * 2 + 1;
+            const endSem = startSem + 1;
+
+            [startSem, endSem].forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = `Semester ${s}`;
+                if (currentSemVal == s) opt.selected = true; // Preserve if valid
+                semSelect.appendChild(opt);
+            });
+
+            // If previous selection is no longer valid, select the first one
+            if (semSelect.selectedIndex < 0 && semSelect.options.length > 0) {
+                semSelect.selectedIndex = 0;
+            }
+
+        } else {
+            // Reset
+            document.getElementById('yearDisplay').value = "Year -";
+            // Also reset semester options if batch is cleared
+            const semSelect = document.getElementById('semInput');
+            semSelect.innerHTML = '';
+            // Optionally, re-populate with all 8 semesters or a default "Select Semester"
+            // For now, leaving it empty as per the reset logic for year.
+            // If a default is desired, it would be:
+            // for (let i = 1; i <= 8; i++) {
+            //     const opt = document.createElement('option');
+            //     opt.value = i;
+            //     opt.textContent = `Semester ${i}`;
+            //     semSelect.appendChild(opt);
+            // }
+        }
+    }
+
+    const dropZoneFace = document.getElementById('dropZoneFace');
+    if (dropZoneFace) {
+        dropZoneFace.addEventListener('click', () => document.getElementById('faceZipInput').click());
+        dropZoneFace.addEventListener('dragover', (e) => { e.preventDefault(); dropZoneFace.classList.add('border-blue-500'); });
+        dropZoneFace.addEventListener('dragleave', () => dropZoneFace.classList.remove('border-blue-500'));
+        dropZoneFace.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZoneFace.classList.remove('border-blue-500');
+            const files = e.dataTransfer.files;
+            if (files.length && files[0].name.toLowerCase().endsWith('.zip')) {
+                document.getElementById('faceZipInput').files = files;
+                document.getElementById('faceFileName').textContent = files[0].name;
+            }
+        });
+    }
+
+    const bulkFaceForm = document.getElementById('bulkFaceForm');
+    if (bulkFaceForm) {
+        bulkFaceForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            document.getElementById('bulkFaceProgress').classList.remove('hidden');
+            document.getElementById('bulkFaceResults').classList.add('hidden');
+
+            const formData = new FormData(this);
+            console.log("Bulk Face: Calling API...");
+            fetch('/api/admin/students/bulk-face-upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(r => r.json())
+                .then(data => {
+                    console.log("Bulk Face: Response received", data);
+                    document.getElementById('bulkFaceProgress').classList.add('hidden');
+                    if (data.success) {
+                        document.getElementById('bulkFaceResults').classList.remove('hidden');
+                        document.getElementById('statsSuccess').textContent = data.stats.val_success;
+                        document.getElementById('statsFailed').textContent = data.stats.val_failed;
+                        document.getElementById('statsImages').textContent = data.stats.images_processed;
+
+                        const tbody = document.getElementById('bulkResultBody');
+                        tbody.innerHTML = '';
+                        data.report.forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.className = "border-b border-[#2d2d2d]";
+                            const statusClass = item.status === 'Success' ? 'text-green-400' : 'text-red-400';
+                            tr.innerHTML = `
+                            <td class="px-3 py-2 font-mono">${item.reg_no}</td>
+                            <td class="px-3 py-2 ${statusClass}">${item.status} (${item.count})</td>
+                            <td class="px-3 py-2 text-xs">${item.reason}</td>
+                        `;
+                            tbody.appendChild(tr);
+                        });
+
+                        // Reload on Modal Close (We can add a close button trigger or just reload after a delay or let user close)
+                        // User wants: "Refresh student list automatically".
+                        // Let's add an explicit "Close & Refresh" button or bind to the modal close.
+                        // For now, let's reload when the user closes the modal or clicks a "Done" button.
+                        // I'll add a temporary "Done" button or attach to existing close.
+                        // Actually, I'll modify the close button behavior to reload if success occurred.
+
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error("Bulk Face: Error", err);
+                    document.getElementById('bulkFaceProgress').classList.add('hidden');
+                    alert('Upload Error: ' + err);
+                });
+        });
+    }
+
+    const addStudentForm = document.getElementById('addStudentForm');
+    if (addStudentForm) {
+        addStudentForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const status = document.getElementById('addStatus');
+            status.textContent = "Processing...";
+            status.className = "mt-4 text-center p-3 rounded-lg bg-blue-900/30 text-blue-400 border border-blue-900/50";
+            status.classList.remove('hidden');
+
+            fetch("{{ url_for('enroll_user') }}", {
+                method: 'POST',
+                body: formData
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        status.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Success! Reloading...';
+                        status.className = "mt-4 text-center p-3 rounded-lg bg-green-900/30 text-green-400 border border-green-900/50";
+
+                        // Smart Reload: Switch filters to the new student's context
+                        const formData = new FormData(addStudentForm);
+                        const params = new URLSearchParams({
+                            tab: 'students',
+                            dept_id: formData.get('dept_id'),
+                            // Use the SELECTED batch/sem from input, not hidden defaults
+                            batch_year: formData.get('batch_year'),
+                            semester: formData.get('semester')
+                        });
+
+                        setTimeout(() => window.location.href = `{{ url_for('admin_user_management') }}?${params.toString()}`, 1000);
+                    } else {
+                        status.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> ' + data.message;
+                        status.className = "mt-4 text-center p-3 rounded-lg bg-red-900/30 text-red-400 border border-red-900/50";
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    status.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> Error connecting to server.';
+                    status.className = "mt-4 text-center p-3 rounded-lg bg-red-900/30 text-red-400 border border-red-900/50";
+                });
+        });
+    }
+</script>
+{% endblock %}

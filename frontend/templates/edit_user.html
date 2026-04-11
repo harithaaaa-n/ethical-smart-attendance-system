@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit User - ADHIYAMAAN Attendance System</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f0f0f;
+            color: white;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #2d2d2d;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+
+<body class="flex flex-col min-h-screen">
+    <header class="bg-[#141414] border-b border-gray-800 p-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <a href="{{ url_for('admin_user_management') }}" class="p-2 rounded-lg hover:bg-gray-800">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h2 class="font-bold">Edit User: {{ user.full_name }}</h2>
+        </div>
+        <div class="flex items-center space-x-4">
+            <p class="text-sm">Welcome, <span class="font-semibold">{{ session.full_name }}</span></p>
+            <a href="{{ url_for('logout') }}" class="text-red-400 hover:text-red-300">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </header>
+
+    <main class="flex-grow p-6 bg-[#0f0f0f]">
+        <div class="max-w-xl mx-auto">
+            <div class="card p-6">
+                <form action="{{ url_for('edit_user', user_id=user.id) }}" method="post" class="space-y-4">
+                    <div>
+                        <label for="full_name" class="block text-sm font-medium text-gray-400">Full Name</label>
+                        <input type="text" id="full_name" name="full_name" value="{{ user.full_name }}" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-400">Username</label>
+                        <input type="text" id="username" name="username" value="{{ user.username }}" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-400">New Password (Leave blank
+                            to keep current)</label>
+                        <input type="password" id="password" name="password"
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    <div>
+                        <label for="role" class="block text-sm font-medium text-gray-400">Role</label>
+                        <select id="role" name="role" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                            <option value="student" {% if user.role=='student' %}selected{% endif %}>Student</option>
+                            <option value="teacher" {% if user.role=='teacher' %}selected{% endif %}>Teacher</option>
+                            <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="department" class="block text-sm font-medium text-gray-400">Department</label>
+                        <select id="department" name="department" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                            <option value="">Select Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}" {% if user.department==dept %}selected{% endif %}>{{ dept }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="batch_year" class="block text-sm font-medium text-gray-400">Batch Year (e.g.,
+                            2023-2027)</label>
+                        <input type="text" id="batch_year" name="batch_year" value="{{ user.batch_year }}" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    {% if user.role == 'student' %}
+                    <div>
+                        <label for="roll_number" class="block text-sm font-medium text-gray-400">Roll Number</label>
+                        <input type="text" id="roll_number" name="roll_number" value="{{ user.roll_number }}" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    {% endif %}
+                    <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">
+                        Save Changes
+                    </button>
+                    <a href="{{ url_for('enroll_student_face', user_id=user.id) }}"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg text-center mt-4 block">
+                        <i class="fas fa-camera mr-2"></i> Enroll Face
+                    </a>
+                </form>
+            </div>
+        </div>
+    </main>
+</body>
+
+</html>

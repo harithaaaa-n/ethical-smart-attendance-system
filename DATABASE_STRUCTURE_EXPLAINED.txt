@@ -1,0 +1,122 @@
+# ATTENDANCE SYSTEM - DATABASE STRUCTURE & WORKING DESCRIPTION
+# ==============================================================
+
+This document provides a detailed breakdown of the PostgreSQL database used in the Attendance System, including table fields, purposes, and how the system operates.
+
+---
+
+### 1. USER MANAGEMENT MODULE
+This module handles all users (Admins, Teachers, and Students), including profiles and authentication.
+
+#### Table: `users`
+The central repository for user data.
+- `id` (SERIAL PK): Unique internal ID.
+- `username` (VARCHAR UNIQUE): System login name.
+- `password` (BYTEA): Bcrypt-hashed password for security.
+- `role` (VARCHAR): Defines permissions (`admin`, `teacher`, `student`).
+- `full_name` (VARCHAR): User's legal/display name.
+- `roll_number` (VARCHAR UNIQUE): Student's roll number (often for internal use).
+- `register_number` (VARCHAR): Student's official university/college ID (used for sorting).
+- `department`, `year`, `batch_year`, `semester`, `section`: Academic context for students.
+- `active_status`: `Active` (Default) or `Inactive`.
+- `face_status`: `Enrolled` (if face data exists) or `Not Enrolled`.
+- `is_face_enrolled`: Boolean flag for quick checks.
+- `profile_image_path`: Path to the profile avatar file.
+- `preferences`: JSON string for user-specific UI settings (theme, notifications).
+- `last_login`: Timestamp of the most recent session.
+
+---
+
+### 2. ATTENDANCE & SECURITY MODULE
+Handles the logging of attendance, verification, and security bypasses.
+
+#### Table: `attendance`
+Stores every individual attendance entry.
+- `id` (SERIAL PK): Record ID.
+- `user_id` (FK -> `users.id`): Identity of the student.
+- `timestamp`: Date and time when the attendance was marked.
+- `status`: `Present`, `Absent`, or `OD` (On Duty).
+- `subject`: The subject name (Legacy fallback).
+- `period_no`: Integer (1-8) representing the class hour.
+- `marked_by` (FK -> `users.id`): The teacher/admin who supervised the entry.
+- `confidence_score` (FLOAT): The AI facial recognition match percentage.
+- `proof_image_path`: Path to the image captured during recognition.
+- `method`: How it was marked (`live`, `manual_override`, `emergency_code`).
+- `is_finalized`: If TRUE, the record is locked for official reports.
+
+#### Table: `emergency_codes`
+System for bypassing Face Recognition (e.g., if a student has an injury).
+- `code` (VARCHAR UNIQUE): Secure 8-character OTP.
+- `expires_at`: Validity timestamp.
+- `is_used`: Used/Unused status.
+- `metadata`: JSON details about the usage context.
+
+#### Table: `attendance_grievances`
+Allows students to officially dispute incorrect attendance.
+- `student_id` (FK -> `users.id`): The student filing the complaint.
+- `attendance_id` (FK -> `attendance.id`): The record being disputed.
+- `reason`: Explanation provided by the student.
+- `status`: `Pending`, `Approved`, or `Rejected`.
+- `admin_comment`: Feedback from the resolver.
+
+---
+
+### 3. ACADEMIC MAPPING & TIMETABLE MODULE
+The core logic for organizing classes, subjects, and schedules.
+
+#### Basic Registry Tables:
+- `academic_departments`: Registry of departments (CS, IT, etc.).
+- `academic_years`: Registry of batches (e.g., 2023-2027).
+- `academic_sections`: Registry of sections (A, B, C).
+- `academic_subjects`: Registry of subjects including `theory` vs `lab` types and credits.
+- `academic_classes`: A junction table that groups Dept + Batch + Section into a "Class Unit".
+
+#### Table: `class_subject_mapping`
+Defines which subjects are assigned to which academic class unit.
+
+#### Table: `teacher_subject_assignments`
+Assigns specific teachers to teach a specific subject to a specific department/year.
+
+#### Timetable System:
+- `timetable_periods`: Defines the global timing slots (e.g., Period 1 is 8:30 - 9:20).
+- `timetable_master`: The root container for a specific class's schedule.
+- `timetable_entries`: Individual slots inside a master timetable, linking a Day + Period to a Subject + Staff.
+
+---
+
+### 4. BIOMETRIC (FACE) MODULE
+Stores the data required for AI face recognition.
+
+#### Table: `face_embeddings`
+- `user_id` (FK -> `users.id`): The student.
+- `encoding` (BYTEA): The 512D vector representing the face (InsightFace).
+- `source`:
+    - `enrollment_sample`: High-quality photos from initial setup.
+    - `centroid`: The mathematical mean of all samples (used as the primary match).
+    - `live`: Snapshot from a successful attendance session.
+
+---
+
+### 5. MONITORING MODULE
+
+#### Table: `behavior_violations`
+Logs suspicious activity detected during AI monitoring.
+- `user_id`: The student involved.
+- `violation_type`: E.g., "Multiple Faces Detected", "No Face Detected".
+- `image_proof_path`: Path to the violation snapshot.
+
+---
+
+### HOW IT WORKS (DATA FLOW)
+
+1. **Setup**: Admin registers Departments, Batches, and Subjects. They create a Timetable Master for a class.
+2. **Enrollment**: Students undergo "Face Enrollment". Multiple samples are stored in `face_embeddings`, and a `centroid` (the "perfect" face profile) is calculated.
+3. **Daily Routine**:
+    - When a teacher starts an attendance session, the system checks `timetable_entries` for the current time/day to auto-resolve the Subject and Class.
+    - The camera captures student faces.
+    - The AI compares live faces against the `centroid` embeddings of all active students in that specific class.
+    - On a match, a record is inserted into `attendance` with the `live` snapshot as proof.
+4. **Reporting**:
+    - The system joins `attendance` with `semester_info` (which defines start/end dates and holidays).
+    - It calculates percentages by comparing "Total Working Periods" (filtered by the timetable) vs. "Actual Present Instances".
+5. **Corrections**: If a mistake occurs, the student files a `grievance`. The Admin resolves it, which automatically corrects the `status` in the `attendance` table.

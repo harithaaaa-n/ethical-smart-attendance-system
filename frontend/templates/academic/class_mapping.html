@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Subject Mapping - Academic Setup{% endblock %}
+{% block header %}Academic Setup{% endblock %}
+{% block subheader %}Assign subjects to classes{% endblock %}
+
+{% block content %}
+<!-- Main Tabs -->
+
+
+<!-- Academic Sub-Tabs -->
+<div class="flex overflow-x-auto gap-2 mb-8 pb-2">
+    <a href="{{ url_for('academic.departments') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Departments</a>
+    <a href="{{ url_for('academic.years') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Batches</a>
+    <!-- Sections Link Removed -->
+    <a href="{{ url_for('academic.subjects') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Subjects</a>
+    <a href="{{ url_for('academic.classes') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Classes</a>
+    <a href="{{ url_for('academic.mapping') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-blue-600 text-white shadow-lg shadow-blue-900/20">Subject
+        Mapping</a>
+</div>
+
+
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Assign Subject Form -->
+    <div class="card p-6 border-t-4 border-t-green-500 h-fit lg:col-span-1">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-link text-green-500"></i> Assign Subjects
+        </h3>
+        <form action="{{ url_for('academic.mapping') }}" method="POST" class="flex flex-col gap-4">
+            <!-- Cascading Selection -->
+            <input type="hidden" name="class_id" id="selected_class_id">
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Department <span
+                            class="text-red-500">*</span></label>
+                    <select id="map_dept_id" onchange="cascadeClasses()"
+                        class="w-full p-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Select Dept</option>
+                        {% for d in departments %}
+                        <option value="{{ d.id }}">{{ d.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                            class="text-red-500">*</span></label>
+                    <select id="map_year_id" onchange="onBatchChange()"
+                        class="w-full p-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Select Batch</option>
+                        {% for y in years %}
+                        <option value="{{ y.id }}">{{ y.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div id="mapping_current_year_ui" class="text-xs text-blue-400 mt-1 font-mono hidden">
+                        <i class="fas fa-info-circle"></i> Year: <span class="current_year_val font-bold"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Semester <span
+                            class="text-red-500">*</span></label>
+                    <select name="semester" id="input_semester" required onchange="filterSubjects()"
+                        class="w-full p-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Select Sem</option>
+                        {% for i in range(1, 9) %}
+                        <option value="{{ i }}">Semester {{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Section <span
+                            class="text-red-500">*</span></label>
+                    <select id="map_section_id" onchange="setClassId()"
+                        class="w-full p-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Select Section</option>
+                    </select>
+                </div>
+            </div>
+            <div id="class_status_msg" class="text-xs text-red-500 hidden mt-1">Class not found for this combination
+            </div>
+
+            <!-- Filters -->
+            <div class="flex gap-2">
+                <!-- Semester Filter unified with Input above -->
+                <select id="filterType" onchange="filterSubjects()"
+                    class="w-full p-2 bg-[#1a1a1a] border border-[#333] rounded text-sm text-gray-300 outline-none">
+                    <option value="">All Types</option>
+                    <option value="Core">Core</option>
+                    <option value="Elective">Elective</option>
+                    <option value="Lab">Lab</option>
+                </select>
+            </div>
+
+            <!-- Subject List -->
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Select Subjects</label>
+                <div class="max-h-[400px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    {% for s in subjects %}
+                    <label
+                        class="subject-item flex items-start p-3 bg-[#1f1f1f] border border-[#2d2d2d] rounded-lg cursor-pointer hover:bg-[#252525] transition-colors"
+                        data-sem="{{ s.semester }}" data-type="{{ s.subject_type }}">
+                        <input type="checkbox" name="subject_ids" value="{{ s.id }}"
+                            class="mt-1 w-4 h-4 rounded border-gray-600 text-green-600 focus:ring-green-500 bg-[#141414]">
+                        <div class="ml-3">
+                            <div class="text-sm font-medium text-white">{{ s.name }}</div>
+                            <div class="text-xs text-gray-500 mt-0.5">
+                                {{ s.code or 'No Code' }} • Sem {{ s.semester or '?' }} • {{ s.subject_type }}
+                            </div>
+                        </div>
+                    </label>
+                    {% endfor %}
+                    <div id="noSubjectsMsg" class="hidden text-center text-gray-500 py-4 text-sm">No subjects match
+                        filters</div>
+                </div>
+            </div>
+
+            <button type="submit"
+                class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-green-900/20 transition-all hover:-translate-y-0.5 mt-2">
+                Map Selected Subjects
+            </button>
+        </form>
+    </div>
+
+    <!-- Mappings Table -->
+    <div class="card p-0 overflow-hidden border-t-4 border-t-blue-500 lg:col-span-2">
+        <div class="p-6 border-b border-[#2d2d2d] bg-[#1a1a1a]">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-list-ul text-blue-500"></i> Current Mappings
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Class</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Subject</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Sem</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Code</th>
+                        <th
+                            class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d] text-right w-24">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if mappings %}
+                    {% for m in mappings %}
+                    <tr class="hover:bg-white/5 transition-colors border-b border-[#2d2d2d] last:border-0">
+                        <td class="p-4 font-medium text-white">{{ m.class_name }}</td>
+                        <td class="p-4 text-gray-300">{{ m.subject_name }}</td>
+                        <td class="p-4 text-gray-300">{{ m.semester or '-' }}</td>
+                        <td class="p-4 font-mono text-sm text-gray-400">{{ m.code or '-' }}</td>
+                        <td class="p-4 flex justify-end">
+                            <form action="{{ url_for('academic.delete_mapping', id=m.id) }}" method="POST"
+                                onsubmit="return confirm('Remove this subject mapping?');" class="inline">
+                                <button type="submit"
+                                    class="w-8 h-8 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 flex items-center justify-center transition-colors">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-gray-500">No mappings created yet.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="classes-data" type="application/json">{{ classes | tojson | safe }}</script>
+<script>
+    const allClasses = JSON.parse(document.getElementById('classes-data').textContent);
+
+    function onBatchChange() {
+        cascadeClasses();
+        const batchId = document.getElementById('map_year_id').value;
+        fetchBatchDetails(batchId);
+    }
+
+    async function fetchBatchDetails(batchId) {
+        const yearUI = document.getElementById('mapping_current_year_ui');
+        const yearVal = yearUI ? yearUI.querySelector('.current_year_val') : null;
+
+        if (yearUI) yearUI.classList.add('hidden');
+        if (!batchId) {
+            updateSemesterOptions(null);
+            return;
+        }
+
+        try {
+            const response = await fetch(`/admin/user-management/academic/api/batch/${batchId}/details`);
+            const data = await response.json();
+
+            if (data.current_year_display) {
+                if (yearUI && yearVal) {
+                    const romans = ["I", "II", "III", "IV"];
+                    const roman = data.current_year_display <= 4 ? romans[data.current_year_display - 1] : data.current_year_display;
+                    yearVal.textContent = roman;
+                    yearUI.classList.remove('hidden');
+                }
+                updateSemesterOptions(data.current_year_display);
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    function updateSemesterOptions(year) {
+        const semSelect = document.getElementById('input_semester');
+        semSelect.innerHTML = '<option value="">Select Sem</option>';
+
+        if (!year || year > 4) {
+            // Fallback: Show all 1-8 if year invalid or graduated
+            for (let i = 1; i <= 8; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `Semester ${i}`;
+                semSelect.appendChild(opt);
+            }
+            return;
+        }
+
+        const startSem = (year - 1) * 2 + 1;
+        const endSem = startSem + 1;
+
+        [startSem, endSem].forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = `Semester ${s}`;
+            semSelect.appendChild(opt);
+        });
+
+        // Reset filter
+        filterSubjects();
+    }
+
+    function cascadeClasses() {
+        const deptId = document.getElementById('map_dept_id').value;
+        const yearId = document.getElementById('map_year_id').value;
+        const sectionSelect = document.getElementById('map_section_id');
+        const msg = document.getElementById('class_status_msg');
+        const submitBtn = document.querySelector('button[type="submit"]');
+
+        // Reset section logic
+        sectionSelect.innerHTML = '<option value="">Select Section</option>';
+        document.getElementById('selected_class_id').value = '';
+        msg.classList.add('hidden');
+        if (submitBtn) submitBtn.disabled = true;
+        if (submitBtn) submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+        if (!deptId || !yearId) return;
+
+        // Filter classes
+        const matches = allClasses.filter(c => c.dept_id == deptId && c.year_id == yearId);
+
+        matches.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.sec_name || 'No Section';
+            sectionSelect.appendChild(opt);
+        });
+
+        if (matches.length === 0) {
+            msg.classList.remove('hidden');
+        }
+    }
+
+    function setClassId() {
+        const classId = document.getElementById('map_section_id').value;
+        document.getElementById('selected_class_id').value = classId;
+
+        const submitBtn = document.querySelector('button[type="submit"]');
+        if (classId) {
+            if (submitBtn) submitBtn.disabled = false;
+            if (submitBtn) submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            if (submitBtn) submitBtn.disabled = true;
+            if (submitBtn) submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+    }
+
+    function filterSubjects() {
+        const sem = document.getElementById('input_semester').value; // Use main input
+        const type = document.getElementById('filterType').value;
+        const items = document.querySelectorAll('.subject-item');
+        let visibleCount = 0;
+
+        items.forEach(item => {
+            const itemSem = item.dataset.sem;
+            const itemType = item.dataset.type;
+
+            let show = true;
+            if (sem && itemSem !== sem) show = false;
+            if (type && itemType !== type) show = false;
+
+            if (show) {
+                item.classList.remove('hidden');
+                item.classList.add('flex');
+                visibleCount++;
+            } else {
+                item.classList.add('hidden');
+                item.classList.remove('flex');
+            }
+        });
+
+        const msg = document.getElementById('noSubjectsMsg');
+        if (visibleCount === 0) {
+            msg.classList.remove('hidden');
+        } else {
+            msg.classList.add('hidden');
+        }
+    }
+</script>
+{% endblock %}

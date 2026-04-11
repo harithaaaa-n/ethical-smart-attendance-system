@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Select Class - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Attendance Marking{% endblock %}
+{% block subheader %}Configure session details{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('select_attendance_mode') }}"
+            class="text-gray-400 hover:text-white flex items-center gap-2 transition-colors">
+            <i class="fas fa-arrow-left"></i> Back to Modes
+        </a>
+    </div>
+
+    <div class="card p-8 border-t-4 border-t-blue-500">
+        <h2 class="text-2xl font-bold mb-6 text-center">Session Configuration</h2>
+
+        {% if request.args.get('mode') == 'manual' %}
+        <div
+            class="bg-green-900/20 border border-green-900/50 p-3 rounded-lg mb-6 flex items-center justify-center gap-2 text-green-400 text-sm">
+            <i class="fas fa-clipboard-check"></i> Manual Entry Mode Selected
+        </div>
+        <form action="{{ url_for('manual_attendance') }}" method="POST" class="flex flex-col gap-4">
+            {% elif request.args.get('mode') == 'class_photo' %}
+            <div
+                class="bg-purple-900/20 border border-purple-900/50 p-3 rounded-lg mb-6 flex items-center justify-center gap-2 text-purple-400 text-sm">
+                <i class="fas fa-camera-retro"></i> Class Photo Mode Selected
+            </div>
+            <form action="{{ url_for('class_photo_attendance_page') }}" method="POST" class="flex flex-col gap-4">
+                {% else %}
+                <div
+                    class="bg-blue-900/20 border border-blue-900/50 p-3 rounded-lg mb-6 flex items-center justify-center gap-2 text-blue-400 text-sm">
+                    <i class="fas fa-camera"></i> Live Face Recognition Mode Selected
+                </div>
+                <form action="{{ url_for('mark_attendance_face_recognition') }}" method="POST"
+                    class="flex flex-col gap-4">
+                    {% endif %}
+
+                    <div>
+                        <label for="department" class="block text-xs font-medium text-gray-400 mb-1">Department <span
+                                class="text-red-500">*</span></label>
+                        <select id="department" name="department" required
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                            <option value="">Select Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}">{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="batch_year" class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                                class="text-red-500">*</span> <span
+                                class="text-xs text-gray-600">(YYYY-YYYY)</span></label>
+                        <select id="batch_year" name="batch_year" required
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                            <option value="">Select Batch</option>
+                            {% for batch in batches %}
+                            <option value="{{ batch.name }}">{{ batch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="semester" class="block text-xs font-medium text-gray-400 mb-1">Semester <span
+                                    class="text-red-500">*</span></label>
+                            <select id="semester" name="semester" required
+                                class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                <option value="">Select Semester</option>
+                                <option value="1">Sem 1</option>
+                                <option value="2">Sem 2</option>
+                                <option value="3">Sem 3</option>
+                                <option value="4">Sem 4</option>
+                                <option value="5">Sem 5</option>
+                                <option value="6">Sem 6</option>
+                                <option value="7">Sem 7</option>
+                                <option value="8">Sem 8</option>
+                            </select>
+                            <input type="hidden" id="year" name="year">
+                        </div>
+                        <div>
+                            <label for="year_simple" class="block text-xs font-medium text-gray-400 mb-1">Year</label>
+                            <input type="text" id="year_simple" readonly placeholder="-"
+                                class="w-full p-3 bg-[#1a1a1a] border border-[#2d2d2d] rounded-lg text-gray-400 cursor-not-allowed outline-none select-none text-center font-mono">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="subject" class="block text-xs font-medium text-gray-400 mb-1">Subject <span
+                                class="text-red-500">*</span></label>
+                        <select id="subject" name="subject" required
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                            <option value="">Select Subject</option>
+                        </select>
+                    </div>
+
+                    <!-- NEW: Period/Hour Selection -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="period" class="block text-xs font-medium text-gray-400 mb-1">Period / Hour <span
+                                    class="text-red-500">*</span></label>
+                            <select id="period" name="period" required
+                                class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                <option value="">Select Period</option>
+                                <!-- Populated via JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="time_display" class="block text-xs font-medium text-gray-400 mb-1">Time</label>
+                            <input type="text" id="time_display" readonly placeholder="--"
+                                class="w-full p-3 bg-[#1a1a1a] border border-[#2d2d2d] rounded-lg text-gray-400 cursor-not-allowed outline-none select-none text-center font-mono">
+                            <!-- Send separate start/end if needed, or just single string -->
+                            <input type="hidden" id="time_start" name="time_start">
+                            <input type="hidden" id="time_end" name="time_end">
+                        </div>
+                    </div>
+
+                    <!-- OD Students Input -->
+                    <div>
+                        <label for="od_students" class="block text-xs font-medium text-gray-400 mb-1">On-Duty (OD)
+                            Students <span class="text-xs text-gray-600">(Optional - Roll Numbers, comma
+                                separated)</span></label>
+                        <input type="text" id="od_students" name="od_students" placeholder="e.g. 24036, 24040"
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono">
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5 mt-4">
+                        Start Session <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const batchInput = document.getElementById('batch_year');
+        const deptInput = document.getElementById('department');
+        const subjectInput = document.getElementById('subject');
+
+        const semSelect = document.getElementById('semester');
+        const yearHidden = document.getElementById('year');
+        const yearSimple = document.getElementById('year_simple');
+        const periodSelect = document.getElementById('period');
+        const timeDisplay = document.getElementById('time_display');
+
+        function updateYearFromSemester() {
+            if (semSelect.value) {
+                const sem = parseInt(semSelect.value);
+                const year = Math.ceil(sem / 2);
+
+                yearHidden.value = year;
+                yearSimple.value = `Year ${year}`;
+            } else {
+                yearHidden.value = '';
+                yearSimple.value = '-';
+            }
+        }
+
+        async function fetchSubjects() {
+            const dept = deptInput ? deptInput.value : '';
+            const yearStr = yearHidden ? yearHidden.value : '';
+            const sem = semSelect ? semSelect.value : '';
+
+            // Reset subject and period dropdowns
+            if (subjectInput) {
+                subjectInput.innerHTML = '<option value="">Select Subject</option>';
+            }
+            if (periodSelect) {
+                periodSelect.innerHTML = '<option value="">Select Period</option>';
+                if (timeDisplay) timeDisplay.value = '';
+            }
+            
+            if (!dept) return;
+
+            try {
+                let url = `/api/get_subjects?department=${encodeURIComponent(dept)}`;
+                if (yearStr) url += `&year=${encodeURIComponent(yearStr)}`;
+                if (sem) url += `&semester=${encodeURIComponent(sem)}`;
+                
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                if (data && data.length > 0) {
+                    data.forEach(s => {
+                         const opt = document.createElement('option');
+                         opt.value = s;
+                         opt.text = s;
+                         if (s === "Not Assigned") opt.disabled = true;
+                         subjectInput.appendChild(opt);
+                    });
+                } else {
+                    const opt = document.createElement('option');
+                    opt.text = "No subjects assigned";
+                    opt.disabled = true;
+                    subjectInput.appendChild(opt);
+                }
+            } catch(e) {
+                console.error("Error fetching subjects", e);
+            }
+        }
+
+        // Attach Listener
+        if (semSelect) {
+            semSelect.addEventListener('change', () => {
+                updateYearFromSemester();
+                fetchSubjects();
+            });
+            // Initial check
+            updateYearFromSemester();
+        }
+
+        async function fetchPeriods() {
+            const dept = deptInput.value;
+            const sub = subjectInput.value;
+            const batch = batchInput.value;
+
+            // Reset
+            periodSelect.innerHTML = '<option value="">Select Period</option>';
+            timeDisplay.value = '';
+
+            if (!dept || !sub) return; // Batch optional for period? No, robust check.
+
+            try {
+                // Get current day name
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const todayName = days[new Date().getDay()];
+
+                const url = `/api/timetable/periods?department=${encodeURIComponent(dept)}&subject=${encodeURIComponent(sub)}&day=${encodeURIComponent(todayName)}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.length > 0) {
+                    data.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.period_no; // Pass period_no as the value
+                        opt.text = p.label;
+                        opt.dataset.start = p.start_time;
+                        opt.dataset.end = p.end_time;
+                        periodSelect.appendChild(opt);
+                    });
+                } else {
+                    const opt = document.createElement('option');
+                    opt.text = "No slots today";
+                    opt.disabled = true;
+                    periodSelect.appendChild(opt);
+                }
+
+            } catch (e) {
+                console.error("Error fetching periods", e);
+            }
+        }
+
+        if (batchInput) {
+            batchInput.addEventListener('change', () => { fetchPeriods(); });
+        }
+
+        if (deptInput) {
+            deptInput.addEventListener('change', fetchSubjects);
+        }
+        if (subjectInput) subjectInput.addEventListener('change', fetchPeriods);
+
+        if (periodSelect) {
+            periodSelect.addEventListener('change', function () {
+                const selected = this.options[this.selectedIndex];
+                if (selected.dataset.start) {
+                    timeDisplay.value = selected.dataset.start.substring(0, 5) + ' - ' + selected.dataset.end.substring(0, 5);
+                } else {
+                    timeDisplay.value = '';
+                }
+            });
+        }
+
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const timeDisplayVal = timeDisplay ? timeDisplay.value : '';
+                if (timeDisplayVal && timeDisplayVal.includes('-')) {
+                    const parts = timeDisplayVal.split('-');
+                    const startTimeStr = parts[0].trim();
+                    const endTimeStr = parts[1].trim();
+                    
+                    const now = new Date();
+                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                    
+                    const parseTime = (timeStr) => {
+                        const [h, m] = timeStr.split(':').map(Number);
+                        return h * 60 + (m || 0);
+                    };
+                    
+                    const startMins = parseTime(startTimeStr);
+                    const endMins = parseTime(endTimeStr);
+                    
+                    // Allow marking within period + 10 mins buffer
+                    // ADMIN BYPASS: Allow admins to mark attendance anytime
+                    const isAdmin = "{{ session.get('role') }}" === "admin";
+                    
+                    if (!isAdmin && (currentMinutes < (startMins - 10) || currentMinutes > (endMins + 10))) {
+                        e.preventDefault();
+                        alert(`Attendance can only be marked during the scheduled period (${startTimeStr} - ${endTimeStr}) \u00B110 mins buffer.`);
+                        return false;
+                    }
+                }
+            });
+        }
+    });
+
+</script>
+{% endblock %}

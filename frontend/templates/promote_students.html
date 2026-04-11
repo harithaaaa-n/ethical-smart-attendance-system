@@ -1,0 +1,609 @@
+{% extends "base.html" %}
+
+{% block title %}Promote Students - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Promote Students{% endblock %}
+{% block subheader %}Bulk promote students to the next semester{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{{ url_for('admin_user_management') }}" class="text-gray-400 hover:text-white transition-colors">
+        <i class="fas fa-arrow-left mr-2"></i> Back to User Management
+    </a>
+</div>
+
+<!-- Filter Section -->
+<div class="card p-6 mb-8 border-l-4 border-l-indigo-500 overflow-visible relative z-20">
+    <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
+        <i class="fas fa-filter text-indigo-500 dark:text-indigo-400"></i> Select Students to Promote
+    </h3>
+    <form id="filterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <!-- Batch Filter -->
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Batch</label>
+            <select id="batchFilter" required
+                class="w-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2d2d2d] rounded-lg p-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="">Select Batch</option>
+                {% for batch in batches %}
+                <option value="{{ batch.id }}" data-start-year="{{ batch.start_year }}">{{ batch.name }}</option>
+                {% endfor %}
+            </select>
+            <p id="detectedYearText" class="text-xs text-indigo-600 dark:text-indigo-400 mt-1 hidden font-mono">Detected
+                Year: -</p>
+        </div>
+
+        <!-- Semester Filter -->
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Current Semester</label>
+            <select id="semesterFilter"
+                class="w-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2d2d2d] rounded-lg p-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="">All Semesters</option>
+                <!-- Populated by JS -->
+            </select>
+        </div>
+
+        <!-- Action Dropdown -->
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Action</label>
+            <select id="promotionAction" required onchange="updateTargetSemester()"
+                class="w-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2d2d2d] rounded-lg p-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="detain">Detain (Repeat Sem)</option>
+                <option value="promote">Promote to Next Sem</option>
+                <option value="discontinue">Discontinue Student</option>
+                <option value="depromote">De-promote (Rollback)</option>
+            </select>
+        </div>
+
+        <!-- Target Semester (Next for To Semester) -->
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Target Semester</label>
+            <select id="targetSemester"
+                class="w-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2d2d2d] rounded-lg p-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 outline-none border-l-4 border-l-green-500">
+                <option value="">Select Target</option>
+                <!-- Populated by JS -->
+            </select>
+        </div>
+
+        <!-- Department Filter -->
+        <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Department</label>
+            <select id="deptFilter"
+                class="w-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2d2d2d] rounded-lg p-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit"
+            class="bg-indigo-500 hover:bg-indigo-600 text-white p-2.5 rounded-lg font-semibold transition-all hover:translate-y-px shadow-lg shadow-indigo-900/20">
+            <i class="fas fa-search mr-2"></i> Find Students
+        </button>
+    </form>
+</div>
+
+<!-- Results Section -->
+<div class="card p-0 overflow-hidden hidden" id="resultsCard">
+    <div
+        class="p-6 border-b border-gray-200 dark:border-[#2d2d2d] flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div>
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-users text-gray-400"></i> Search Results
+                <span id="resultCount"
+                    class="text-sm font-normal text-gray-500 bg-gray-100 dark:bg-[#141414] px-2 py-0.5 rounded-full border border-gray-200 dark:border-[#2d2d2d]">0</span>
+            </h2>
+            <p class="text-xs text-gray-500 mt-1">Select students to promote to the next semester.</p>
+        </div>
+
+        <button id="promoteBtn" onclick="promoteSelected()" disabled
+            class="bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-6 rounded-lg shadow-lg shadow-green-900/20 transition-all hover:-translate-y-0.5">
+            <i class="fas fa-level-up-alt mr-2"></i> Promote Selected
+        </button>
+    </div>
+
+    <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-gray-50 dark:bg-[#141414] text-xs uppercase text-gray-400 sticky top-0 z-10">
+                <tr>
+                    <th class="p-4 w-10">
+                        <input type="checkbox" id="selectAll" onchange="toggleAll(this)"
+                            class="rounded bg-gray-100 dark:bg-[#2d2d2d] border-gray-300 dark:border-gray-600 focus:ring-indigo-500">
+                    </th>
+                    <th class="p-4 font-semibold tracking-wide">Register No</th>
+                    <th class="p-4 font-semibold tracking-wide">Name</th>
+                    <th class="p-4 font-semibold tracking-wide">Batch</th>
+                    <th class="p-4 font-semibold tracking-wide">Year</th>
+                    <th class="p-4 font-semibold tracking-wide">Sem</th>
+                    <th class="p-4 font-semibold tracking-wide">Section</th>
+                    <th class="p-4 font-semibold tracking-wide">Next Sem</th>
+                </tr>
+            </thead>
+            <tbody id="studentsTableBody" class="divide-y divide-gray-200 dark:divide-[#2d2d2d]">
+                <!-- Rows injected by JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden p-12 text-center text-gray-500">
+        <i class="fas fa-search text-4xl mb-3 opacity-50"></i>
+        <p>No students found matching filters.</p>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<!-- Confirmation Modal -->
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div style="background-color: #ffffff !important; color: #111827 !important;"
+        class="bg-white p-8 rounded-2xl border border-gray-100 max-w-md w-full shadow-2xl transform transition-all scale-100">
+        <div class="text-center">
+            <div id="confirmIcon"
+                class="text-5xl mb-6 text-indigo-500 mx-auto w-20 h-20 flex items-center justify-center bg-gray-50 rounded-full border border-gray-100">
+                <i class="fas fa-question"></i>
+            </div>
+
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Confirm Action</h3>
+            <p class="text-gray-500 mb-6" id="confirmText">Are you sure?</p>
+
+            <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-100 text-left">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-500 text-sm">Action Type</span>
+                    <span id="summaryAction" class="text-gray-900 font-mono font-bold uppercase">PROMOTE</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-500 text-sm">Students Selected</span>
+                    <span id="summaryCount" class="text-indigo-600 font-bold">0</span>
+                </div>
+                <div class="flex justify-between border-t border-gray-200 pt-2 mt-2">
+                    <span class="text-gray-500 text-sm">Target Semester</span>
+                    <span id="summaryTarget" class="text-green-600 font-bold">Semester 2</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()"
+                    class="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-medium transition-colors">
+                    Cancel
+                </button>
+                <button id="confirmExecuteBtn" onclick="executePromotion()"
+                    class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all hover:translate-y-px">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Modal (Processing/Success/Error) -->
+<div id="statusModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-2xl border border-gray-100 max-w-sm w-full text-center shadow-2xl"
+        style="background-color: #ffffff !important; color: #111827 !important;">
+        <div id="statusIcon" class="text-5xl mb-4 text-blue-500"><i class="fas fa-spinner fa-spin"></i></div>
+        <h3 id="statusTitle" class="text-xl font-bold text-gray-900 mb-2">Processing...</h3>
+        <p id="statusMsg" class="text-gray-500 mb-6">Updating student records...</p>
+        <button id="statusCloseBtn" onclick="document.getElementById('statusModal').classList.add('hidden')"
+            class="hidden bg-gray-100 hover:bg-gray-200 text-gray-900 px-6 py-2 rounded-lg font-medium transition-colors">
+            Close
+        </button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentStudents = [];
+
+    // Configuration for Actions
+    const ACTION_CONFIG = {
+        promote: {
+            text: 'Promote',
+            icon: 'level-up-alt',
+            colorClass: 'bg-green-500 hover:bg-green-600',
+            iconClass: 'text-green-500',
+            confirmMsg: 'Are you sure you want to promote these students to the next semester?'
+        },
+        detain: {
+            text: 'Detain',
+            icon: 'redo',
+            colorClass: 'bg-orange-500 hover:bg-orange-600',
+            iconClass: 'text-orange-500',
+            confirmMsg: 'Are you sure you want to detain these students in the same semester?'
+        },
+        depromote: {
+            text: 'De-Promote',
+            icon: 'level-down-alt',
+            colorClass: 'bg-blue-500 hover:bg-blue-600',
+            iconClass: 'text-blue-500',
+            confirmMsg: 'Are you sure you want to de-promote these students to the previous semester?'
+        },
+        discontinue: {
+            text: 'Discontinue',
+            icon: 'ban',
+            colorClass: 'bg-red-500 hover:bg-red-600',
+            iconClass: 'text-red-500',
+            confirmMsg: 'This will mark students as Discontinued. Are you sure?'
+        }
+    };
+
+    document.getElementById('filterForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        loadStudents();
+    });
+
+    // Detect Year & Update Semesters
+    document.getElementById('batchFilter').addEventListener('change', function () {
+        const option = this.options[this.selectedIndex];
+        const startYear = parseInt(option.getAttribute('data-start-year'));
+        const detectedText = document.getElementById('detectedYearText');
+        const semSelect = document.getElementById('semesterFilter');
+
+        if (!startYear) {
+            detectedText.classList.add('hidden');
+            semSelect.innerHTML = '<option value="">All Semesters</option>';
+            return;
+        }
+
+        // Calculate Current Year
+        const now = new Date();
+        const currYear = now.getFullYear();
+        const currMonth = now.getMonth() + 1; // 1-12
+
+        // Academic year starts in July (7) generally
+        const effectiveAcademicYearStart = currMonth >= 7 ? currYear : currYear - 1;
+        const diff = effectiveAcademicYearStart - startYear;
+        let year = diff + 1;
+
+        if (year < 1) year = 1;
+        if (year > 4) year = 4; // Cap at 4
+
+        // Hide Detected Year by default (Wait for Semester Selection)
+        detectedText.classList.add('hidden');
+
+        // Update Semesters - 1 to 8
+        semSelect.innerHTML = '<option value="">All Semesters</option>';
+        for (let s = 1; s <= 8; s++) {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = "Semester " + s;
+            semSelect.appendChild(opt);
+        }
+    });
+
+    // NEW: Override Year Logic on Semester Selection
+    document.getElementById('semesterFilter').addEventListener('change', function () {
+        const sem = parseInt(this.value);
+        const detectedText = document.getElementById('detectedYearText');
+
+        if (sem) {
+            // Override Logic: Year = ceil(Semester / 2)
+            const year = Math.ceil(sem / 2.0);
+            detectedText.textContent = "Detected Year: " + year;
+            detectedText.classList.remove('hidden');
+        } else {
+            // Fallback: Re-trigger batch logic or just leave as is if batch didn't change
+            // Best to manually re-run batch logic or simplistic restore
+            const batchSelect = document.getElementById('batchFilter');
+            // Trigger change event to reset to batch-derived year
+            if (batchSelect.value) {
+                batchSelect.dispatchEvent(new Event('change'));
+            } else {
+                detectedText.classList.add('hidden');
+            }
+        }
+
+        // Existing logic hooks
+        updateTargetSemester();
+        updateBtnState();
+    });
+
+    // Populate Target Semester Options (1-8)
+    const targetSelect = document.getElementById('targetSemester');
+    targetSelect.innerHTML = '<option value="">Select Target</option>';
+    [1, 2, 3, 4, 5, 6, 7, 8].forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = "Semester " + s;
+        targetSelect.appendChild(opt);
+    });
+
+    // Auto-select Target Semester & Update Button
+    document.getElementById('semesterFilter').addEventListener('change', () => {
+        updateTargetSemester();
+        updateBtnState(); // Count might be 0 but valid
+    });
+
+    document.getElementById('promotionAction').addEventListener('change', () => {
+        updateTargetSemester();
+        updateBtnState();
+    });
+
+    function updateTargetSemester() {
+        const current = parseInt(document.getElementById('semesterFilter').value);
+        const action = document.getElementById('promotionAction').value;
+        const targetSelect = document.getElementById('targetSemester');
+
+        // Always read-only/disabled
+        targetSelect.disabled = true;
+        targetSelect.classList.add('opacity-75', 'cursor-not-allowed');
+
+        if (!current) {
+            targetSelect.value = "";
+            return;
+        }
+
+        let target = "";
+
+        if (action === 'promote') {
+            target = current < 8 ? current + 1 : '8';
+        } else if (action === 'detain') {
+            target = current;
+        } else if (action === 'depromote') {
+            target = current > 1 ? current - 1 : '1';
+        } else if (action === 'discontinue') {
+            target = "";
+        }
+
+        targetSelect.value = target;
+    }
+
+    function loadStudents() {
+        const batchId = document.getElementById('batchFilter').value;
+        const sem = document.getElementById('semesterFilter').value;
+        const deptId = document.getElementById('deptFilter').value;
+
+        if (!batchId) {
+            alert("Please select a Batch first.");
+            return;
+        }
+
+        // Show loading
+        const tbody = document.getElementById('studentsTableBody');
+        tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center"><i class="fas fa-spinner fa-spin text-2xl text-indigo-500"></i></td></tr>';
+        document.getElementById('resultsCard').classList.remove('hidden');
+        document.getElementById('emptyState').classList.add('hidden');
+
+        // Pass 'year_id' as Batch ID to backend
+        const params = new URLSearchParams({
+            year_id: batchId,
+            semester: sem,
+            dept_id: deptId
+        });
+
+        fetch(`/api/students/search?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    currentStudents = data.students;
+                    renderTable(data.students);
+                } else {
+                    alert('Error fetching students: ' + data.message);
+                }
+            })
+            .catch(e => {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-red-500">Error loading data.</td></tr>';
+            });
+    }
+
+    function renderTable(students) {
+        const tbody = document.getElementById('studentsTableBody');
+        const countSpan = document.getElementById('resultCount');
+        const emptyState = document.getElementById('emptyState');
+        const promoteBtn = document.getElementById('promoteBtn');
+
+        tbody.innerHTML = '';
+        countSpan.textContent = students.length;
+
+        if (students.length === 0) {
+            emptyState.classList.remove('hidden');
+            promoteBtn.disabled = true;
+            promoteBtn.classList.add('hidden');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        promoteBtn.disabled = true;
+        promoteBtn.classList.remove('hidden'); // Show button
+        document.getElementById('selectAll').checked = false;
+
+        students.forEach(s => {
+            const sem = s.semester || 1;
+            const nextSem = sem < 8 ? sem + 1 : 'Grad';
+            const isGrad = sem >= 8;
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50 dark:hover:bg-[#222] transition-colors group border-b border-gray-200 dark:border-[#2d2d2d]';
+            tr.innerHTML = `
+                <td class="p-4">
+                    <input type="checkbox" name="studentSelect" value="${s.id}" ${isGrad ? 'disabled' : ''} 
+                        class="rounded bg-gray-100 dark:bg-[#2d2d2d] border-gray-300 dark:border-gray-600 focus:ring-indigo-500 ${isGrad ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}"
+                        onchange="updateBtnState()">
+                </td>
+                <td class="p-4 font-mono text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white">${s.register_number || s.roll_number || '-'}</td>
+                <td class="p-4 font-bold text-gray-900 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">${s.full_name}</td>
+                <td class="p-4 text-gray-500 dark:text-gray-400 text-sm">${s.batch_year || '-'}</td>
+                <td class="p-4 text-gray-500 dark:text-gray-400 text-sm">${s.year || '-'}</td>
+                <td class="p-4"><span class="bg-gray-100 dark:bg-[#141414] border border-gray-200 dark:border-[#333] px-2 py-1 rounded text-xs text-blue-600 dark:text-blue-400">S${sem}</span></td>
+                <td class="p-4 text-gray-500 dark:text-gray-400 text-sm">${s.section_name || '-'}</td>
+                <td class="p-4">
+                    ${isGrad
+                    ? '<span class="text-green-600 dark:text-green-500 text-xs font-bold">COMPLETED</span>'
+                    : `<span class="text-indigo-600 dark:text-indigo-400 text-xs font-bold">S${nextSem}</span>`}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Initial button update
+        updateBtnState();
+    }
+
+    function toggleAll(source) {
+        const checkboxes = document.getElementsByName('studentSelect');
+        for (let cb of checkboxes) {
+            if (!cb.disabled) cb.checked = source.checked;
+        }
+        updateBtnState();
+    }
+
+    function updateBtnState() {
+        const selected = document.querySelectorAll('input[name="studentSelect"]:checked').length;
+        const btn = document.getElementById('promoteBtn');
+        const action = document.getElementById('promotionAction').value;
+        const config = ACTION_CONFIG[action];
+
+        if (selected === 0) {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            // Keep style but dim
+            btn.innerHTML = `<i class="fas fa-${config.icon} mr-2"></i> ${config.text} Students`;
+            return;
+        }
+
+        // Enable and Style
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed', 'hidden');
+
+        // Reset colors
+        btn.className = `transition-all text-white font-medium py-2 px-6 rounded-lg shadow-lg hover:-translate-y-0.5 ${config.colorClass}`;
+
+        // Update Text
+        btn.innerHTML = `<i class="fas fa-${config.icon} mr-2"></i> ${config.text} ${selected} Students`;
+    }
+
+    // --- Confirmation Modal Logic ---
+
+    function promoteSelected() {
+        const selected = document.querySelectorAll('input[name="studentSelect"]:checked').length;
+        if (selected === 0) return;
+
+        const action = document.getElementById('promotionAction').value;
+        const targetSem = document.getElementById('targetSemester');
+        const targetSemText = targetSem.options[targetSem.selectedIndex]?.text || "Discontinued";
+        const config = ACTION_CONFIG[action];
+
+        // Validation
+        if (action !== 'discontinue' && !targetSem.value) {
+            alert("Please check the Target Semester.");
+            return;
+        }
+
+        // Populate Modal
+        document.getElementById('confirmText').textContent = config.confirmMsg;
+        document.getElementById('summaryAction').textContent = action;
+        document.getElementById('summaryCount').textContent = selected;
+        document.getElementById('summaryTarget').textContent = action === 'discontinue' ? 'N/A' : targetSemText;
+
+        // Style Modal Icon
+        const iconDiv = document.getElementById('confirmIcon');
+        iconDiv.innerHTML = `<i class="fas fa-${config.icon}"></i>`;
+        iconDiv.className = `text-5xl mb-6 mx-auto w-20 h-20 flex items-center justify-center bg-gray-50 dark:bg-[#252525] rounded-full border border-gray-200 dark:border-[#333] ${config.iconClass}`;
+
+        // Style Confirm Button
+        const confirmBtn = document.getElementById('confirmExecuteBtn');
+        confirmBtn.className = `flex-1 px-4 py-3 text-white rounded-xl font-bold shadow-md transition-all hover:translate-y-px ${config.colorClass}`;
+
+        // Show
+        document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirmModal').classList.add('hidden');
+    }
+
+    function executePromotion() {
+        closeConfirmModal();
+        const selected = Array.from(document.querySelectorAll('input[name="studentSelect"]:checked')).map(cb => cb.value);
+        const targetSem = document.getElementById('targetSemester').value;
+        const action = document.getElementById('promotionAction').value;
+
+        // Show Status Modal
+        const modal = document.getElementById('statusModal');
+        const icon = document.getElementById('statusIcon');
+        const title = document.getElementById('statusTitle');
+        const msg = document.getElementById('statusMsg');
+        const closeBtn = document.getElementById('statusCloseBtn');
+
+        modal.classList.remove('hidden');
+        icon.className = "text-5xl mb-4 text-blue-500";
+        icon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        title.textContent = "Processing...";
+        msg.textContent = `Executing ${action} for ${selected.length} students...`;
+        closeBtn.classList.add('hidden');
+
+        fetch('/api/students/promote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_ids: selected,
+                target_semester: targetSem ? parseInt(targetSem) : null,
+                action: action
+            })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    icon.className = "text-5xl mb-4 text-green-500";
+                    icon.innerHTML = '<i class="fas fa-check-circle"></i>';
+                    title.textContent = "Success!";
+                    msg.textContent = data.message;
+                    // Refresh list
+                    loadStudents();
+                } else {
+                    icon.className = "text-5xl mb-4 text-red-500";
+                    icon.innerHTML = '<i class="fas fa-times-circle"></i>';
+                    title.textContent = "Error";
+                    msg.textContent = data.message;
+                }
+                closeBtn.classList.remove('hidden');
+            })
+            .catch(err => {
+                icon.className = "text-5xl mb-4 text-red-500";
+                icon.innerHTML = '<i class="fas fa-server"></i>';
+                title.textContent = "Network Error";
+                msg.textContent = "Could not connect to server.";
+                closeBtn.classList.remove('hidden');
+            });
+    }
+</script>
+
+<style>
+    /* Force Light Theme on Modals */
+    #confirmModal>div,
+    #statusModal>div {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid #e5e7eb !important;
+    }
+
+    #confirmModal h3,
+    #statusModal h3,
+    #statusTitle {
+        color: #111827 !important;
+    }
+
+    #confirmModal p,
+    #statusModal p,
+    #statusMsg,
+    #confirmText {
+        color: #374151 !important;
+    }
+
+    #statusCloseBtn {
+        background-color: #f3f4f6 !important;
+        color: #111827 !important;
+        border: 1px solid #d1d5db !important;
+    }
+
+    #statusCloseBtn:hover {
+        background-color: #e5e7eb !important;
+    }
+
+    /* Force Button Colors to be visible */
+    #confirmExecuteBtn {
+        color: #ffffff !important;
+    }
+</style>
+{% endblock %}

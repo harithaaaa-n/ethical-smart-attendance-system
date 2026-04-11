@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Attendance - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Manual Attendance{% endblock %}
+{% block subheader %}Group Marking Interface{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Session Info Header -->
+    <div class="card p-6 border-b border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-transparent">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Department</p>
+                <p class="text-sm font-bold text-white">{{ department }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Year</p>
+                <p class="text-sm font-bold text-white">Year {{ year }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Subject</p>
+                <p class="text-sm font-bold text-blue-400 capitalize">{{ subject }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Period</p>
+                <p class="text-sm font-bold text-yellow-500">{{ period }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Date</p>
+                <p class="text-sm font-bold text-white">{{ date or now_date }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <div
+        class="flex flex-col md:flex-row justify-between items-center gap-4 bg-[#141414] p-4 rounded-2xl border border-[#2d2d2d]">
+        <div class="relative w-full md:w-96 group">
+            <i
+                class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors"></i>
+            <input type="text" id="studentSearch" placeholder="Search by name or roll number..."
+                class="w-full bg-[#1a1a1a] border border-[#2d2d2d] rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+        </div>
+
+        <div class="flex items-center gap-4 text-xs font-black uppercase tracking-widest text-gray-500">
+            <span class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-green-500"></span> Present: <span id="countPresent"
+                    class="text-white">0</span>
+            </span>
+            <span class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-red-500"></span> Absent: <span id="countAbsent"
+                    class="text-white">0</span>
+            </span>
+            <span class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-blue-500"></span> OD: <span id="countOD"
+                    class="text-white">0</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- Attendance Form -->
+    <form action="{{ url_for('submit_manual_attendance') }}" method="POST" id="attendanceForm">
+        <!-- Hidden Session Metadata -->
+        <input type="hidden" name="department" value="{{ department }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="subject" value="{{ subject }}">
+        <input type="hidden" name="period" value="{{ period }}">
+        <input type="hidden" name="batch_year" value="{{ batch_year }}">
+        <input type="hidden" name="semester" value="{{ semester }}">
+
+        <div class="card overflow-hidden border border-[#2d2d2d]">
+            <table class="w-full text-left">
+                <thead class="bg-[#1a1a1a] border-b border-[#2d2d2d]">
+                    <tr>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">#</th>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Roll Number
+                        </th>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Student
+                            Name</th>
+                        <th
+                            class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">
+                            Attendance Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#2d2d2d]" id="studentTableBody">
+                    {% for student in students %}
+                    <tr class="student-row hover:bg-white/[0.02] transition-colors"
+                        data-search="{{ student.roll_number }} {{ student.full_name|lower }}">
+                        <td class="px-6 py-4 text-sm text-gray-500 font-mono">{{ loop.index }}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-white font-mono">{{ student.roll_number }}</td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-medium text-white">{{ student.full_name }}</div>
+                            <div class="text-[10px] text-gray-500 uppercase tracking-tight">{{ student.department }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-center gap-2">
+                                <!-- Triple Toggle -->
+                                <div class="inline-flex p-1 bg-[#141414] rounded-xl border border-[#2d2d2d]">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="status-{{ student.id }}" value="Present"
+                                            class="hidden peer" checked onchange="updateCounts()">
+                                        <span
+                                            class="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                                            peer-checked:bg-green-600 peer-checked:text-white text-gray-500 hover:text-gray-300">P</span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="status-{{ student.id }}" value="Absent"
+                                            class="hidden peer" onchange="updateCounts()">
+                                        <span
+                                            class="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                                            peer-checked:bg-red-600 peer-checked:text-white text-gray-500 hover:text-gray-300">A</span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="status-{{ student.id }}" value="OD"
+                                            class="hidden peer" onchange="updateCounts()">
+                                        <span
+                                            class="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                                            peer-checked:bg-blue-600 peer-checked:text-white text-gray-500 hover:text-gray-300">OD</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if not students %}
+            <div class="p-12 text-center">
+                <div
+                    class="w-16 h-16 bg-[#1a1a1a] rounded-full flex items-center justify-center text-gray-600 mx-auto mb-4">
+                    <i class="fas fa-users-slash text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-1">No Students Found</h3>
+                <p class="text-sm text-gray-500">Try adjusting your filters or contact administration.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sticky Footer Actions -->
+        <div class="sticky bottom-6 left-0 right-0 z-40 px-6">
+            <div
+                class="glass p-4 rounded-3xl border border-white/10 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 max-w-5xl mx-auto">
+                <div class="flex items-center gap-4 text-sm">
+                    <div class="hidden md:flex flex-col">
+                        <span class="text-[10px] text-gray-500 font-black uppercase tracking-widest">Total
+                            Students</span>
+                        <span class="text-white font-bold">{{ students|length }} Identified</span>
+                    </div>
+                </div>
+                <div class="flex gap-4 w-full md:w-auto">
+                    <a href="{{ url_for('select_attendance_mode') }}"
+                        class="flex-1 md:flex-none px-8 py-3 rounded-2xl bg-white/5 border border-white/10 text-gray-300 font-bold text-sm text-center hover:bg-white/10 transition-all">
+                        Back to Modes
+                    </a>
+                    <button type="submit"
+                        class="flex-1 md:flex-none px-12 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-600/20 transition-all active:scale-95">
+                        Submit Attendance <i class="fas fa-save ml-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateCounts() {
+        const present = document.querySelectorAll('input[type="radio"][value="Present"]:checked').length;
+        const absent = document.querySelectorAll('input[type="radio"][value="Absent"]:checked').length;
+        const od = document.querySelectorAll('input[type="radio"][value="OD"]:checked').length;
+
+        document.getElementById('countPresent').textContent = present;
+        document.getElementById('countAbsent').textContent = absent;
+        document.getElementById('countOD').textContent = od;
+    }
+
+    // Interactive Search
+    document.getElementById('studentSearch').addEventListener('input', function (e) {
+        const term = e.target.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.student-row');
+
+        rows.forEach(row => {
+            const searchText = row.getAttribute('data-search');
+            if (searchText.includes(term)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    // Initialize counts on load
+    document.addEventListener('DOMContentLoaded', updateCounts);
+
+    // Prevent double submission
+    document.getElementById('attendanceForm').addEventListener('submit', function () {
+        const btn = this.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+    });
+</script>
+{% endblock %}

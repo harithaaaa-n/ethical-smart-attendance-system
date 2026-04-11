@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Teachers - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}User Management{% endblock %}
+{% block subheader %}View and manage teacher accounts{% endblock %}
+
+{% block content %}
+<!-- Active Tabs -->
+<div class="flex overflow-x-auto border-b border-[#2d2d2d] mb-8">
+    <a href="{{ url_for('admin_user_management') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-transparent text-gray-400 hover:text-white hover:bg-white/5">
+        <i class="fas fa-user-graduate mr-2"></i>Students
+    </a>
+    <a href="{{ url_for('admin_teachers') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-blue-500 text-blue-500 bg-blue-500/5">
+        <i class="fas fa-chalkboard-teacher mr-2"></i>Teachers
+    </a>
+    <a href="{{ url_for('enroll_user') }}"
+        class="px-6 py-3 border-b-2 font-medium transition-colors whitespace-nowrap border-transparent text-gray-400 hover:text-white hover:bg-white/5">
+        <i class="fas fa-user-plus mr-2"></i>Enroll Student
+    </a>
+
+</div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div
+    class="p-4 mb-6 rounded-lg {% if category == 'success' %}bg-green-900/50 text-green-200 border border-green-800{% else %}bg-red-900/50 text-red-200 border border-red-800{% endif %} flex items-center gap-2">
+    <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %}"></i>
+    {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Add Teacher Form -->
+    <div class="card p-6 border-t-4 border-t-green-500 h-fit lg:col-span-1">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-user-plus text-green-500"></i> Add New Teacher
+        </h3>
+        <form action="{{ url_for('add_teacher') }}" method="POST" class="flex flex-col gap-4">
+            <input type="hidden" name="role" value="teacher">
+            <!-- Fallbacks for required fields not relevant for teachers -->
+            <input type="hidden" name="department" value="N/A">
+            <input type="hidden" name="year" value="0">
+
+            <div>
+                <label for="full_name" class="block text-xs font-medium text-gray-400 mb-1">Full Name <span
+                        class="text-red-500">*</span></label>
+                <input type="text" id="full_name" name="full_name" required placeholder="e.g. Dr. John Doe"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all placeholder-gray-600">
+            </div>
+            <div>
+                <label for="username" class="block text-xs font-medium text-gray-400 mb-1">Username <span
+                        class="text-red-500">*</span></label>
+                <input type="text" id="username" name="username" required placeholder="e.g. jdoe"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all placeholder-gray-600">
+            </div>
+            <div>
+                <label for="password" class="block text-xs font-medium text-gray-400 mb-1">Password <span
+                        class="text-red-500">*</span></label>
+                <input type="password" id="password" name="password" required placeholder="••••••••"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all placeholder-gray-600">
+            </div>
+
+            <button type="submit"
+                class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-green-900/20 transition-all hover:-translate-y-0.5 mt-2">
+                Add Teacher
+            </button>
+        </form>
+    </div>
+
+    <!-- Teachers List -->
+    <div class="card p-0 overflow-hidden border-t-4 border-t-blue-500 lg:col-span-2">
+        <div class="p-6 border-b border-[#2d2d2d] bg-[#1a1a1a] flex justify-between items-center">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-users text-blue-500"></i> All Teachers
+            </h3>
+            <span class="bg-blue-900/30 text-blue-300 px-3 py-1 rounded-full text-xs font-bold border border-blue-800">
+                {{ teachers|length }} Total
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Name</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Username</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Department
+                        </th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d] text-right">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if teachers %}
+                    {% for teacher in teachers %}
+                    <tr class="hover:bg-white/5 transition-colors border-b border-[#2d2d2d] last:border-0">
+                        <td class="p-4 font-bold text-white flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold ring-2 ring-[#1f1f1f]">
+                                {{ teacher.full_name[:2].upper() }}
+                            </div>
+                            {{ teacher.full_name }}
+                        </td>
+                        <td class="p-4 text-gray-300 font-mono text-sm">@{{ teacher.username }}</td>
+                        <td class="p-4 text-gray-400 text-sm">{{ teacher.department }}</td>
+                        <td class="p-4">
+                            <div class="flex justify-end gap-2">
+                                <a href="{{ url_for('assign_subjects_page', teacher_id=teacher.id) }}"
+                                    class="w-8 h-8 rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 flex items-center justify-center transition-colors border border-blue-900/30"
+                                    title="Assign Subjects">
+                                    <i class="fas fa-book-open"></i>
+                                </a>
+                                <a href="{{ url_for('edit_teacher', user_id=teacher.id) }}"
+                                    class="w-8 h-8 rounded-lg bg-green-900/20 text-green-400 hover:bg-green-900/40 flex items-center justify-center transition-colors border border-green-900/30"
+                                    title="Edit Teacher">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <!-- Enrolling faces for teachers? If supported, keeping logic -->
+                                <a href="{{ url_for('enroll_student_face', user_id=teacher.id) }}"
+                                    class="w-8 h-8 rounded-lg bg-purple-900/20 text-purple-400 hover:bg-purple-900/40 flex items-center justify-center transition-colors border border-purple-900/30"
+                                    title="Enroll Face">
+                                    <i class="fas fa-camera"></i>
+                                </a>
+                                <form action="{{ url_for('delete_teacher', user_id=teacher.id) }}" method="POST"
+                                    onsubmit="return confirm('Delete this teacher account?');" class="inline">
+                                    <button type="submit"
+                                        class="w-8 h-8 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 flex items-center justify-center transition-colors border border-red-900/30"
+                                        title="Delete Teacher">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-gray-500">No teachers found. Add one to get started.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

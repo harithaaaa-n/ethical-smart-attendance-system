@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block header %}My Subjects{% endblock %}
+{% block subheader %}Subjects you are assigned to teach{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="p-6 border-b border-[#2d2d2d]">
+        <h2 class="text-xl font-bold">Assigned Courses</h2>
+    </div>
+    <div class="p-0">
+        {% if subjects %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left responsive-table">
+                <thead>
+                    <tr>
+                        <th class="p-4 border-b border-[#2d2d2d] bg-[#1f1f1f] text-gray-300 font-semibold">Department
+                        </th>
+                        <th class="p-4 border-b border-[#2d2d2d] bg-[#1f1f1f] text-gray-300 font-semibold">Year</th>
+                        <th class="p-4 border-b border-[#2d2d2d] bg-[#1f1f1f] text-gray-300 font-semibold">Subject Code
+                        </th>
+                        <th class="p-4 border-b border-[#2d2d2d] bg-[#1f1f1f] text-gray-300 font-semibold">Subject Name
+                        </th>
+                        <th class="p-4 border-b border-[#2d2d2d] bg-[#1f1f1f] text-gray-300 font-semibold text-right">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sub in subjects %}
+                    <tr class="hover:bg-white/5 transition-colors border-b border-[#2d2d2d]">
+                        <td class="p-4">{{ sub.department }}</td>
+                        <td class="p-4">Year {{ sub.year }}</td>
+                        <td class="p-4 font-mono text-blue-400">{{ sub.subject_code or '-' }}</td>
+                        <td class="p-4 font-medium">{{ sub.subject_name }}</td>
+                        <td class="p-4 text-right">
+                            <a href="{{ url_for('select_attendance_mode') }}?dept={{ sub.department }}&year={{ sub.year }}&subject={{ sub.subject_name }}"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors">
+                                <i class="fas fa-camera mr-1"></i> Mark Attendance
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="bg-gray-800 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-book-open text-gray-500 text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-white">No Subjects Assigned</h3>
+            <p class="text-gray-400 mt-2">You haven't been assigned any subjects yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

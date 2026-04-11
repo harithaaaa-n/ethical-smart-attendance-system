@@ -1,0 +1,393 @@
+================================================================================
+  BIOMETRIC LOGIC — FULL CODE & WORKFLOW EXPLANATION
+  File: backend/biometric_logic.py
+================================================================================
+
+OVERVIEW
+--------
+biometric_logic.py is the brain of the attendance system.
+It handles EVERYTHING related to faces:
+  - Enrolling a student's face into the system
+  - Recognizing a face during live attendance marking
+  - Streaming the camera feed to the website
+  - Detecting behavior violations (sleeping, phone use)
+  - Real-time anti-spoofing checks
+
+It uses InsightFace (buffalo_l model) → an AI model that detects faces
+and converts each face into a 512-number vector called an "embedding".
+Every person has a unique embedding, like a fingerprint.
+
+
+================================================================================
+  ARCHITECTURE: SINGLETON CLASS
+================================================================================
+
+The entire logic lives in ONE class: FaceRecognitionSystem
+
+  _system = FaceRecognitionSystem()   ← only ONE instance ever created
+
+This is called the Singleton Pattern. No matter how many times you import
+the module, you always get the same object. This means the AI model is loaded
+only once when the server starts (very important — models are huge/slow to load).
+
+The module also exposes "bridge functions" at the bottom that main.py calls.
+These are simple wrappers like:
+    def generate_frames(subject, marked_by_id):
+        return _system.process_video_frame(subject, marked_by_id)
+
+So main.py calls generate_frames(), which delegates to the class.
+
+
+================================================================================
+  STEP-BY-STEP: SYSTEM INITIALIZATION (initialize)
+================================================================================
+
+Called once when the server starts (or the first request arrives).
+
+1. LOAD AI MODELS
+   - Loads "buffalo_l" InsightFace model
+   - Two instances:
+       self.app          → Fast model (320x320) for live video
+       self.app_high_res → High-res model (960x960) for group/class photos
+   - Both use GPU via CUDAExecutionProvider (falls back to CPU if no GPU)
+
+2. LOAD FACE INDEX (embeddings into RAM)
+   - Calls _rebuild_index()
+   - Fetches all stored embeddings from the database
+   - Puts them into self.known_embeddings (list of 512D vectors)
+   - And self.known_ids (matching student IDs)
+   - This is what allows instant face matching during live attendance
+
+3. ONE-TIME MIGRATION CHECK
+   - Looks for a file called ".face_standardization_done"
+   - If not found: re-processes ALL student face photos from disk
+     and re-saves their embeddings to DB in a standardized format
+   - This ensures all embeddings were computed the same way
+
+4. INITIALIZE SUPPORTING MODULES
+   - SleepDetector: detects if a student is sleeping (EAR algorithm)
+   - BehaviorMonitor: detects phone use (YOLO model)
+   - AntiSpoofingValidator: liveness detection (our new addition)
+   - Recognition cooldowns dictionary: prevents re-marking same student
+     within 60 seconds
+
+
+================================================================================
+  STEP-BY-STEP: STUDENT ENROLLMENT WORKFLOW
+================================================================================
+
+Enrollment = "teaching" the system what a student looks like.
+
+--- A. Upload a photo (teacher uploads a student photo) ---
+
+1. process_uploaded_photo(user_id, file_obj)
+   - Reads the uploaded image file
+   - Corrects any phone camera rotation (EXIF metadata fix)
+   - Detects faces using self.app.get(img)
+   - STRICT RULE: Must have exactly ONE face
+   - If multiple faces → picks the largest one
+   - Creates 3 variations of the face crop:
+       * Original crop
+       * Zoom 1 (25% padding around face)
+       * Zoom 2 (10% padding around face)
+   - Calls process_enrollment_image() on each variation → saves 3 embeddings
+
+2. process_enrollment_image(user_id, img)
+   - Core embedding pipeline:
+       a. Detect face in image
+       b. If not found → try CLAHE enhancement (contrast boost), retry
+       c. Quality check (size, angle, confidence)
+       d. preprocess_face() → align + normalize
+       e. Re-run model on aligned face → get embedding vector (512 numbers)
+       f. L2 normalize the vector (make it a unit vector)
+       g. Save to database: database_manager.save_embedding(user_id, emb)
+
+3. finalize_enrollment(user_id)
+   - After all samples are saved, compute a "centroid" 
+     (average of all embeddings for this student)
+   - Check if this centroid is too similar to another student
+     (duplicate detection, threshold: cosine similarity > 0.30)
+   - Save the centroid embedding as the student's primary identity
+   - Rebuild the in-memory index: _rebuild_index()
+
+--- B. Live capture enrollment (teacher captures via webcam) ---
+
+- Uses generate_enrollment_frames() → streams camera feed to browser
+- Each captured frame is passed through process_enrollment_image()
+- Same pipeline as above
+
+
+================================================================================
+  STEP-BY-STEP: FACE PREPROCESSING (preprocess_face)
+================================================================================
+
+This is called before extracting any embedding. Ensures all faces
+are processed the SAME WAY for consistency.
+
+1. ALIGNMENT
+   - Uses 5 facial keypoints: left eye, right eye, nose, mouth corners
+   - Calculates the angle between the two eyes
+   - Rotates the image so eyes are perfectly horizontal
+   - This handles tilted heads
+
+2. CROP
+   - Crops out just the face region from the full image
+   - Adds 20% padding on each side (captures forehead/chin too)
+
+3. RESIZE
+   - Resizes cropped face to 224x224 pixels (standard input size)
+
+4. NORMALIZE
+   - Converts pixel values from 0-255 → 0.0-1.0 (float32)
+   - Required for neural network input
+
+
+================================================================================
+  STEP-BY-STEP: FACE MATCHING (match_face)
+================================================================================
+
+This is called every time a face is detected during live attendance.
+It compares the detected face against ALL stored student embeddings.
+
+INPUT:  query_embedding  (512-number vector of the detected face)
+OUTPUT: (user_id, similarity_score, is_relaxed_match) or None
+
+Algorithm:
+1. Compute cosine similarity = dot product of query vs ALL known embeddings
+   (This works because L2-normalized vectors: dot product = cosine similarity)
+
+2. For each student: take their MAXIMUM similarity score
+   (A student may have multiple embeddings; take the best match)
+
+3. Sort students by score (highest first)
+
+4. Apply TWO rules to accept a match:
+   RULE A - THRESHOLD:  best_score >= 0.38 (strict) 
+   RULE B - MARGIN:     best_score - second_best_score >= 0.01
+
+   → Both rules must pass, otherwise → REJECTED (Unknown)
+
+   The margin rule prevents false matches when two students look similar.
+   Example: Student A scores 0.42, Student B scores 0.415 → AMBIGUOUS → Unknown
+
+Quality thresholds (from face_config.py):
+  MATCH_THRESHOLD_STRICT  = 0.38  (strong match required)
+  MATCH_THRESHOLD_RELAXED = 0.30  (used for partially visible faces)
+  MATCH_MARGIN            = 0.01  (gap between 1st and 2nd place)
+
+
+================================================================================
+  STEP-BY-STEP: LIVE ATTENDANCE (process_video_frame)
+================================================================================
+
+This is a Python GENERATOR function — it yields JPEG frames continuously
+to the browser as a video stream (MJPEG streaming).
+
+Called by: /video_feed route in main.py
+
+--- WORKFLOW PER FRAME ---
+
+1. Open the camera (tries index 0, 1, 2 with fallback to DSHOW on Windows)
+
+2. FRAME SKIPPING (optimization)
+   - Processes only every 3rd frame (skip_frames=2)
+   - For skipped frames: reuse last detected bounding boxes
+   - This gives ~3x better FPS while still looking smooth
+
+3. FOR EACH DETECTED FACE:
+
+   A. Quality Check (check_face_quality)
+      - Detection confidence > 0.65
+      - Face size > 15x15 pixels
+      - Head angle: max ±25° yaw, ±20° pitch
+      - If quality is bad → draw RED box, skip recognition
+
+   B. Blur Check (is_image_blurry)
+      - Computes Laplacian variance of the face crop
+      - If score < 100 → image is blurry → skip
+
+   C. Alignment & Preprocessing (preprocess_face)
+      - Align face, resize to 224x224, normalize
+
+   D. Re-Detect on aligned face
+      - Run model again on the aligned 224x224 crop
+      - Gets a high-quality embedding from aligned face
+
+   E. L2 Normalize the embedding
+
+   F. Match Face (match_face)
+      - Compare against all known students
+      - Get: user_id, score, is_relaxed
+
+   G. Gender Prediction
+      - Runs a secondary model to predict gender (Male/Female)
+      - Displayed alongside name on the video
+
+   H. LIVENESS CHECK (Anti-Spoofing — our new addition)
+      - validate_frame() checks:
+          * Moiré pattern (FFT analysis) → screen detection
+          * Specular highlights → phone screen glare
+          * Temporal MSE → static photo detection
+      - If SPOOF DETECTED:
+          * Name changed to "SPOOF: [reason]"
+          * Color = orange
+          * latest_recognition marked with liveness_failed=True
+
+   I. RECOGNITION COOLDOWN
+      - If student was already marked in last 60 seconds:
+          display "Name (Marked)" — don't re-queue
+      - Otherwise: add to recognition_queue
+
+   J. BEHAVIOR MONITORING (every 5th frame)
+      - sleep_detector: runs EAR (Eye Aspect Ratio) algorithm
+      - behavior_monitor: runs YOLO to detect phones
+      - Violations logged to database automatically
+
+   K. DRAW OVERLAYS
+      - Colored bounding box (Green=Match, Yellow=Relaxed, Red=Unknown, Orange=Spoof)
+      - Name text above face
+      - Liveness status bar at bottom of frame
+
+4. YIELD JPEG frame back to browser via MJPEG stream
+
+
+================================================================================
+  STEP-BY-STEP: HOW ATTENDANCE GETS MARKED
+================================================================================
+
+The video_feed stream is running continuously in the background.
+In parallel, JavaScript on mark_attendance.html polls every 200ms:
+
+  GET /api/recognition/latest
+
+This returns self.latest_recognition — whatever person was last seen.
+
+When a face is recognized:
+  1. Latest recognition is set: { user_id, name, confidence, timestamp, subject }
+  2. JS detects new event (timestamp > last seen)
+  3. JS checks liveness_failed flag — if True, BLOCKS marking
+  4. JS calls: POST /api/attendance/mark_from_face with user_id
+  5. main.py checks liveness_failed again (server-side enforcement)
+  6. If both checks pass: calls database_manager.mark_attendance_for_user()
+
+
+================================================================================
+  STEP-BY-STEP: CLASS PHOTO ATTENDANCE (process_class_photo_attendance)
+================================================================================
+
+Used when a teacher uploads a single group photo of the whole class.
+Much more complex than live attendance.
+
+1. Load image, correct EXIF rotation
+2. TILED DETECTION (_detect_faces_tiled)
+   - Run normal detection at full resolution (high-res model)
+   - Also split image into 3x3 grid of tiles
+   - Run detection on each tile (catches small/distant faces)
+   - Merge all detections using NMS (Non-Maximum Suppression)
+     NMS removes overlapping duplicate detections
+3. For each detected face:
+   - Quality and blur checks
+   - Preprocessing and embedding extraction
+   - match_face() with scope filter (only this class's students)
+   - If matched AND not already marked: mark attendance
+4. If mark_absent=True: any enrolled student NOT detected → mark Absent
+5. Return counts: present, absent, already_marked
+
+
+================================================================================
+  STEP-BY-STEP: VIOLATION MONITORING (process_violation_frame)
+================================================================================
+
+Separate video stream used on the "Violation Monitoring" page.
+Runs continuously and logs behaviors without marking attendance.
+
+Per frame:
+1. Detect faces (same quality pipeline)
+2. Recognize faces (same match_face logic)
+3. Every 5th frame:
+   - sleep_detector.process_frame() → EAR check for sleep
+   - behavior_monitor.process_frame() → YOLO phone detection
+4. For each violation: database_manager.log_behavior_violation()
+
+
+================================================================================
+  QUALITY CONTROL SUMMARY
+================================================================================
+
+Blur Check:
+  - Laplacian variance < 100 → BLURRY → skip
+
+Face Quality Checks:
+  - Detection score < 0.65 → LOW CONFIDENCE → skip
+  - Face smaller than 15x15 px → TOO SMALL → skip
+  - Yaw > ±25° → TURNED TOO MUCH → skip
+  - Pitch > ±20° → LOOKING TOO FAR UP/DOWN → skip
+
+Image Enhancement (if detection fails):
+  - CLAHE: Contrast Limited Adaptive Histogram Equalization
+    Improves visibility in dark or uneven lighting
+
+Anti-Spoofing (website stream):
+  - FFT high-frequency energy > 50 → MOIRÉ → screen replay detected
+  - Specular highlights > 3 clusters → GLARE → phone screen detected
+  - Temporal MSE < 0.1 → STATIC → printed photo detected
+
+
+================================================================================
+  DATABASE INTERACTIONS
+================================================================================
+
+  database_manager.save_embedding(user_id, emb, source, image_path)
+    → Stores a face embedding (512 floats) in the DB per student
+
+  database_manager.get_all_embeddings()
+    → Called by _rebuild_index() to load all embeddings into RAM
+
+  database_manager.save_centroid(user_id, centroid_emb)
+    → Stores the averaged embedding after finalize_enrollment
+
+  database_manager.mark_attendance_for_user(user_id, subject, ...)
+    → Writes attendance record to the attendances table
+
+  database_manager.log_behavior_violation(user_id, violation_type, ...)
+    → Writes sleep/phone violation to behavior_violations table
+
+
+================================================================================
+  FILES TREE (related to this module)
+================================================================================
+
+  backend/
+  ├── biometric_logic.py         ← This file (main face recognition engine)
+  ├── liveness_detection.py      ← AntiSpoofingValidator (our addition)
+  ├── face_config.py             ← All threshold constants
+  ├── sleep_detector.py          ← EAR-based sleep detection
+  ├── gender_predict.py          ← Gender classifier model
+  ├── behavior_monitoring/
+  │   └── run_monitor.py         ← YOLO phone/behavior detector
+  ├── student_faces/             ← Raw face photos on disk
+  │   └── Name_RollNumber/
+  │       ├── sample_0.jpg
+  │       └── sample_1.jpg
+  └── attendance_proofs/         ← Saved screenshots when attendance marked
+
+
+================================================================================
+  KEY THRESHOLDS (face_config.py)
+================================================================================
+
+  MODEL_NAME                = "buffalo_l"        ← InsightFace model
+  MIN_DETECTION_CONFIDENCE  = 0.65               ← Face detection filter
+  MATCH_THRESHOLD_STRICT    = 0.38               ← Min score to accept match
+  MATCH_THRESHOLD_RELAXED   = 0.30               ← Lower threshold (relaxed)
+  MATCH_MARGIN              = 0.01               ← 1st vs 2nd place gap
+  MAX_YAW                   = 25.0 degrees       ← Head turn limit
+  MAX_PITCH                 = 20.0 degrees       ← Head tilt limit
+  EMBEDDING_DIM             = 512                ← Vector size
+  MIN_SAMPLES_FOR_CENTROID  = 3                  ← Min photos needed to enroll
+  MAX_SAMPLES_FOR_CENTROID  = 10                 ← Max photos stored per student
+
+
+================================================================================
+  END OF DOCUMENT
+================================================================================

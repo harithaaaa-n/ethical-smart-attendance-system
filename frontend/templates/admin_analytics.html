@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Analytics - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Analytics Dashboard{% endblock %}
+{% block subheader %}Visual insights into attendance data{% endblock %}
+
+{% block content %}
+<!-- Filter Data -->
+<div class="card p-6 mb-8 border-t-4 border-t-blue-500">
+    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+        <i class="fas fa-filter text-blue-500"></i> Filter Data
+    </h2>
+    <form id="filterForm" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
+            <label for="department" class="block text-xs font-medium text-gray-400 mb-1">Department</label>
+            <select id="department" name="department"
+                class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                <option value="All">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept }}" {% if selected_department==dept %}selected{% endif %}>{{ dept }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="year" class="block text-xs font-medium text-gray-400 mb-1">Year</label>
+            <select id="year" name="year"
+                class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                <option value="All">All Years</option>
+                {% for year in years %}
+                <option value="{{ year }}" {% if selected_year|string==year|string %}selected{% endif %}>{{ year }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="subject" class="block text-xs font-medium text-gray-400 mb-1">Subject</label>
+            <select id="subject" name="subject"
+                class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                <option value="All">All Subjects</option>
+                {% for subject in subjects %}
+                <option value="{{ subject }}" {% if selected_subject==subject %}selected{% endif %}>{{ subject }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5">
+            Apply Filters
+        </button>
+    </form>
+</div>
+
+<!-- Charts Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Dept Chart -->
+    <div class="card p-6 border-t-4 border-t-purple-500">
+        <h2 class="text-xl font-bold mb-6 text-center flex items-center justify-center gap-2">
+            <i class="fas fa-building text-purple-500"></i> Attendance by Department
+        </h2>
+        <div class="h-80 relative w-full">
+            <canvas id="deptChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Subject Chart -->
+    <div class="card p-6 border-t-4 border-t-green-500">
+        <h2 class="text-xl font-bold mb-6 text-center flex items-center justify-center gap-2">
+            <i class="fas fa-book text-green-500"></i> Attendance by Subject
+        </h2>
+        <div class="h-80 relative w-full">
+            <canvas id="subjectChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script id="department-data" type="application/json">{{ analytics_data.department_data | tojson }}</script>
+<script id="subject-data" type="application/json">{{ analytics_data.subject_data | tojson }}</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const departmentData = JSON.parse(document.getElementById('department-data').textContent);
+        const subjectData = JSON.parse(document.getElementById('subject-data').textContent);
+
+        let deptChart = null;
+        let subjectChart = null;
+
+        function getThemeColors() {
+            const isLight = document.body.classList.contains('light-mode');
+            return {
+                grid: isLight ? '#e5e7eb' : '#2d2d2d',
+                text: isLight ? '#6b7280' : '#9ca3af'
+            };
+        }
+
+        function createCommonOptions(colors) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: colors.text, font: { family: 'Inter' } } },
+                    title: { display: false }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: colors.text, font: { family: 'Inter' } },
+                        grid: { color: colors.grid }
+                    },
+                    y: {
+                        ticks: { color: colors.text, font: { family: 'Inter' } },
+                        grid: { color: colors.grid },
+                        beginAtZero: true
+                    }
+                }
+            };
+        }
+
+        function initCharts() {
+            const colors = getThemeColors();
+            const commonOptions = createCommonOptions(colors);
+
+            // Department Chart
+            if (deptChart) deptChart.destroy();
+            const deptLabels = departmentData.map(d => d.department);
+            const deptPresent = departmentData.map(d => d.present_count);
+            const deptAbsent = departmentData.map(d => d.total_classes - d.present_count);
+
+            deptChart = new Chart(document.getElementById('deptChart'), {
+                type: 'bar',
+                data: {
+                    labels: deptLabels,
+                    datasets: [
+                        { label: 'Present', data: deptPresent, backgroundColor: '#8b5cf6', borderRadius: 4 },
+                        { label: 'Absent', data: deptAbsent, backgroundColor: '#ef4444', borderRadius: 4 }
+                    ]
+                },
+                options: commonOptions
+            });
+
+            // Subject Chart
+            if (subjectChart) subjectChart.destroy();
+            const subjectLabels = subjectData.map(d => d.subject);
+            const subjectPresent = subjectData.map(d => d.present_count);
+            const subjectAbsent = subjectData.map(d => d.total_classes - d.present_count);
+
+            subjectChart = new Chart(document.getElementById('subjectChart'), {
+                type: 'bar',
+                data: {
+                    labels: subjectLabels,
+                    datasets: [
+                        { label: 'Present', data: subjectPresent, backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'Absent', data: subjectAbsent, backgroundColor: '#fbbf24', borderRadius: 4 }
+                    ]
+                },
+                options: commonOptions
+            });
+        }
+
+        // Initial Load
+        initCharts();
+
+        // Theme Change Listener
+        window.addEventListener('themeChanged', () => {
+            const colors = getThemeColors();
+
+            [deptChart, subjectChart].forEach(chart => {
+                if (chart) {
+                    chart.options.plugins.legend.labels.color = colors.text;
+                    chart.options.scales.x.ticks.color = colors.text;
+                    chart.options.scales.x.grid.color = colors.grid;
+                    chart.options.scales.y.ticks.color = colors.text;
+                    chart.options.scales.y.grid.color = colors.grid;
+                    chart.update();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

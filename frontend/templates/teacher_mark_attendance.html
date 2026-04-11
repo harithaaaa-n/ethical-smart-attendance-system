@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Start Session - Teacher{% endblock %}
+{% block header %}Start Attendance Session{% endblock %}
+{% block subheader %}Confirm class details before starting{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+
+    <div class="card p-8 border-t-4 border-t-blue-500">
+        <h2 class="text-2xl font-bold mb-6 text-center">Session Configuration</h2>
+
+        <div class="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-6 flex items-start gap-3">
+            <i class="fas fa-info-circle text-blue-500 mt-1"></i>
+            <div class="text-sm text-blue-700">
+                You are starting attendance for a scheduled class.
+                Details are locked to your timetable.
+            </div>
+        </div>
+
+        <!-- Form submitting to existing attendance endpoint -->
+        <form action="{{ url_for('start_face_recognition_session') }}" method="POST" class="flex flex-col gap-6">
+
+            <!-- Hidden Fields required by the target route -->
+            <input type="hidden" name="department" value="{{ department }}">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="subject" value="{{ subject }}">
+            <!-- Passing section/timetable_id for tracking if the backend supports it later, 
+                 but for now strictly satisfying the requirement to use existing save logic. -->
+
+            <div class="grid grid-cols-1 gap-6">
+                <!-- Locked Fields -->
+                <div>
+                    <label
+                        class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Department</label>
+                    <div
+                        class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 font-mono font-semibold">
+                        {{ department }}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Year</label>
+                        <div
+                            class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 font-mono font-semibold">
+                            Year {{ year }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Time
+                            Slot</label>
+                        <div
+                            class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-600 font-mono text-sm leading-6">
+                            {{ period }}
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Subject</label>
+                    <div
+                        class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-blue-700 font-bold text-lg">
+                        {{ subject }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- OD (On Duty) Students Section -->
+            <div class="bg-orange-900/20 border border-orange-500/30 p-6 rounded-lg mb-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <input type="checkbox" id="hasOdStudents"
+                        class="w-5 h-5 rounded bg-gray-800 border-orange-500 text-orange-600 focus:ring-orange-500">
+                    <label for="hasOdStudents" class="text-orange-300 font-semibold text-lg cursor-pointer">
+                        🟡 Any student on OD for this session?
+                    </label>
+                </div>
+
+                <div id="odInputSection" class="hidden">
+                    <label class="block text-sm text-gray-300 mb-2">
+                        Enter last 2 or 3 digits of roll numbers (comma-separated):
+                    </label>
+                    <div class="flex gap-3">
+                        <input type="text" name="od_students" id="odInput" placeholder="e.g., 25, 032, 48"
+                            class="flex-1 p-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
+                        <button type="button" onclick="saveOdStudents()" id="saveOdBtn"
+                            class="px-6 py-3 bg-orange-600 hover:bg-orange-700 rounded-lg font-bold text-white transition-colors flex items-center gap-2">
+                            <i class="fas fa-save"></i> Save OD
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">
+                        💡 Click "Save OD" to verify and preview students marked as OD
+                    </p>
+
+                    <!-- OD Students Preview -->
+                    <div id="odPreviewSection"
+                        class="hidden mt-4 p-4 bg-gray-800/50 rounded-lg border border-orange-500/30">
+                        <h4 class="text-orange-400 font-semibold mb-3 flex items-center gap-2">
+                            <i class="fas fa-check-circle"></i> Resolved OD Students (<span
+                                id="odPreviewCount">0</span>)
+                        </h4>
+                        <div id="odPreviewGrid" class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <!-- OD students preview will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5 mt-4 flex items-center justify-center gap-2 group">
+                <i class="fas fa-camera text-xl group-hover:scale-110 transition-transform"></i>
+                Start Face Recognition Session
+            </button>
+
+            <div class="text-center">
+                <a href="{{ url_for('teacher_dashboard') }}" class="text-xs text-gray-500 hover:text-gray-300">
+                    Cancel and return to Dashboard
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const CLASS_DEPT = "{{ department }}";
+    const CLASS_YEAR = "{{ year }}";
+    // Batch/Semester might not be directly available in context for this page unless passed from dashboard
+    // But resolve_od_students API mainly needs Dept and Year. 
+    // We can try to grab them if they exist in hidden inputs or context.
+    const CLASS_BATCH = "{{ batch_year or '' }}";
+    const CLASS_SEM = "{{ semester or '' }}";
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const hasOdCheckbox = document.getElementById('hasOdStudents');
+        const odInputSection = document.getElementById('odInputSection');
+
+        if (hasOdCheckbox) {
+            hasOdCheckbox.addEventListener('change', function () {
+                odInputSection.classList.toggle('hidden', !this.checked);
+                if (!this.checked) {
+                    document.getElementById('odInput').value = '';
+                    document.getElementById('odPreviewSection').classList.add('hidden');
+                }
+            });
+        }
+    });
+
+    async function saveOdStudents() {
+        const input = document.getElementById('odInput');
+        const saveBtn = document.getElementById('saveOdBtn');
+        const previewSec = document.getElementById('odPreviewSection');
+        const previewGrid = document.getElementById('odPreviewGrid');
+        const previewCount = document.getElementById('odPreviewCount');
+
+        if (!input.value.trim()) {
+            alert("Please enter roll numbers");
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+
+        try {
+            const res = await fetch('/api/resolve_od_students', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    od_students: input.value,
+                    department: CLASS_DEPT,
+                    year: CLASS_YEAR,
+                    batch_year: CLASS_BATCH,
+                    semester: CLASS_SEM,
+                    save_to_session: true // Optional: Pre-save to session
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                previewGrid.innerHTML = '';
+                previewCount.textContent = data.count;
+
+                if (data.od_students.length > 0) {
+                    data.od_students.forEach(std => {
+                        const div = document.createElement('div');
+                        div.className = 'p-2 bg-orange-50 border border-orange-100 rounded flex flex-col shadow-sm';
+                        div.innerHTML = `
+                            <span class="text-xs text-gray-800 font-bold truncate">${std.full_name}</span>
+                            <span class="text-[10px] text-gray-500 font-mono">${std.roll_number}</span>
+                        `;
+                        previewGrid.appendChild(div);
+                    });
+                    previewSec.classList.remove('hidden');
+                } else {
+                    alert("No matching students found.");
+                    previewSec.classList.add('hidden');
+                }
+            } else {
+                alert("Error: " + data.message);
+            }
+
+        } catch (e) {
+            console.error(e);
+            alert("Network error validating OD students");
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save OD';
+        }
+    }
+</script>
+{% endblock %}

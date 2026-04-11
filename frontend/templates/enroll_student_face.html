@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Enroll Face - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Face Enrollment{% endblock %}
+{% block subheader %}Update biometric data for <span class="text-blue-400">{{ user.full_name }}</span>{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{{ url_for('admin_user_management') }}"
+        class="text-gray-400 hover:text-white flex items-center gap-2 transition-colors">
+        <i class="fas fa-arrow-left"></i> Back to User Management
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- User Details Card -->
+    <div class="card p-6 border-t-4 border-t-gray-500 h-fit lg:col-span-1">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-user-circle text-gray-500"></i> User Profile
+        </h3>
+        <div class="space-y-4">
+            <div class="p-4 bg-[#141414] rounded-lg border border-[#2d2d2d]">
+                <p class="text-xs text-gray-500 mb-1">Full Name</p>
+                <p class="font-bold text-lg text-white">{{ user.full_name }}</p>
+            </div>
+            <div class="p-4 bg-[#141414] rounded-lg border border-[#2d2d2d]">
+                <p class="text-xs text-gray-500 mb-1">Roll Number</p>
+                <p class="font-mono text-gray-300">{{ user.roll_number }}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 bg-[#141414] rounded-lg border border-[#2d2d2d]">
+                    <p class="text-xs text-gray-500 mb-1">Dept</p>
+                    <p class="text-gray-300">{{ user.department }}</p>
+                </div>
+                <div class="p-4 bg-[#141414] rounded-lg border border-[#2d2d2d]">
+                    <p class="text-xs text-gray-500 mb-1">Year</p>
+                    <p class="text-gray-300">{{ user.year }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Face Enrollment Interface -->
+    <div class="card p-0 overflow-hidden border-t-4 border-t-blue-500 lg:col-span-2 flex flex-col">
+        <!-- Tabs -->
+        <div class="flex border-b border-[#2d2d2d] bg-[#1a1a1a]">
+            <button id="tabLive"
+                class="flex-1 py-4 text-center font-bold text-sm text-blue-500 border-b-2 border-blue-500 transition-colors">
+                <i class="fas fa-camera mr-2"></i> Live Camera
+            </button>
+            <button id="tabUpload"
+                class="flex-1 py-4 text-center font-bold text-sm text-gray-400 border-b-2 border-transparent hover:text-white transition-colors">
+                <i class="fas fa-upload mr-2"></i> Upload Photo
+            </button>
+        </div>
+
+        <div class="p-6 flex-grow flex flex-col">
+            <!-- Live Section -->
+            <div id="sectionLive" class="flex-grow flex flex-col items-center">
+                <div
+                    class="bg-black rounded-lg overflow-hidden border border-[#333] mb-6 relative w-full aspect-video flex items-center justify-center">
+                    <img id="liveStream" class="max-w-full max-h-full object-contain"
+                        src="{{ url_for('enrollment_video_feed', user_id=user.id) }}?t={{ range(1, 10000) | random }}"
+                        onerror="this.onerror=null; setTimeout(() => this.src=this.src.split('?')[0] + '?t=' + new Date().getTime(), 1000);">
+
+                    <div
+                        class="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-center space-x-4">
+                        <button id="captureFaceBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-transform hover:scale-105 active:scale-95">
+                            <i class="fas fa-camera mr-2"></i> Snap 1x
+                        </button>
+                        <button id="multiCaptureBtn"
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-transform hover:scale-105 active:scale-95">
+                            <i class="fas fa-bolt mr-2"></i> Burst 5x
+                        </button>
+                    </div>
+                </div>
+
+                <div id="multiProgress" class="hidden w-full bg-[#333] rounded-full h-2 mb-2 overflow-hidden">
+                    <div id="multiProgressBar" class="bg-purple-500 h-full transition-all duration-300"
+                        style="width: 0%"></div>
+                </div>
+                <p id="multiStatusText" class="text-xs text-gray-400 mb-4 hidden"></p>
+            </div>
+
+            <!-- Upload Section -->
+            <div id="sectionUpload" class="hidden flex-grow flex flex-col items-center justify-center py-8">
+                <div class="w-full max-w-sm text-center">
+                    <label for="uploadPhoto"
+                        class="block w-full border-2 border-dashed border-[#333] hover:border-blue-500 rounded-xl p-8 cursor-pointer transition-colors bg-[#141414]">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-500 mb-4"></i>
+                        <span class="block text-gray-300 font-medium">Click to select photo</span>
+                        <span class="block text-gray-500 text-xs mt-2">JPG or PNG only</span>
+                        <input id="uploadPhoto" name="photo" type="file" accept="image/*" class="hidden">
+                    </label>
+
+                    <div id="previewContainer" class="mt-6 hidden relative group">
+                        <img id="imagePreview" class="rounded-lg max-h-48 mx-auto border border-[#333] shadow-lg">
+                        <button id="uploadBtn" disabled
+                            class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 disabled:cursor-not-allowed">
+                            <i class="fas fa-check mr-2"></i> Enroll This
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Feedback -->
+            <div id="faceStatus" class="mt-auto p-4 rounded-lg hidden text-sm font-semibold text-center transition-all">
+            </div>
+
+            <!-- Success Actions -->
+            <div id="successContainer" class="mt-6 text-center hidden pt-6 border-t border-[#2d2d2d]">
+                <button id="saveExitBtn"
+                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-all hover:-translate-y-1">
+                    <i class="fas fa-save mr-2"></i> Save Changes & Exit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Return URL -->
+<input type="hidden" id="returnUrl" value="{{ return_url }}">
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const studentId = '{{ user.id }}';
+        const faceStatus = document.getElementById('faceStatus');
+
+        // Tabs Logic
+        const tabLive = document.getElementById('tabLive');
+        const tabUpload = document.getElementById('tabUpload');
+        const sectionLive = document.getElementById('sectionLive');
+        const sectionUpload = document.getElementById('sectionUpload');
+
+        function switchTab(mode) {
+            if (mode === 'live') {
+                tabLive.classList.add('text-blue-500', 'border-blue-500');
+                tabLive.classList.remove('text-gray-400', 'border-transparent');
+                tabUpload.classList.remove('text-blue-500', 'border-blue-500');
+                tabUpload.classList.add('text-gray-400', 'border-transparent');
+                sectionLive.classList.remove('hidden');
+                sectionUpload.classList.add('hidden');
+            } else {
+                tabUpload.classList.add('text-blue-500', 'border-blue-500');
+                tabUpload.classList.remove('text-gray-400', 'border-transparent');
+                tabLive.classList.remove('text-blue-500', 'border-blue-500');
+                tabLive.classList.add('text-gray-400', 'border-transparent');
+                sectionUpload.classList.remove('hidden');
+                sectionLive.classList.add('hidden');
+            }
+            faceStatus.classList.add('hidden');
+        }
+
+        tabLive.addEventListener('click', () => switchTab('live'));
+        tabUpload.addEventListener('click', () => switchTab('upload'));
+
+        // Helper: Send Enrollment Request
+        async function sendEnrollment(imageData) {
+            try {
+                const response = await fetch('{{ url_for("capture_face") }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_id: studentId, image_data: imageData })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error(error);
+                return { success: false, message: 'Network error' };
+            }
+        }
+
+        function setStatus(msg, type) {
+            faceStatus.textContent = msg;
+            faceStatus.className = 'mt-auto p-4 rounded-lg text-sm font-semibold text-center transition-all bg-[#1a1a1a] border';
+            faceStatus.classList.remove('hidden');
+
+            if (type === 'success') {
+                faceStatus.classList.add('text-green-400', 'border-green-900', 'bg-green-900/20');
+                document.getElementById('successContainer').classList.remove('hidden');
+                document.getElementById('captureFaceBtn').disabled = true;
+                document.getElementById('multiCaptureBtn').disabled = true;
+                const uploadBtn = document.getElementById('uploadBtn');
+                if (uploadBtn) uploadBtn.disabled = true;
+            }
+            else if (type === 'error') {
+                faceStatus.classList.add('text-red-400', 'border-red-900', 'bg-red-900/20');
+            }
+            else {
+                faceStatus.classList.add('text-blue-400', 'border-blue-900', 'bg-blue-900/20');
+            }
+        }
+
+        // --- LIVE CAPTURE LOGIC ---
+        const captureFaceBtn = document.getElementById('captureFaceBtn');
+        const multiCaptureBtn = document.getElementById('multiCaptureBtn');
+        const multiProgress = document.getElementById('multiProgress');
+        const multiProgressBar = document.getElementById('multiProgressBar');
+        const multiStatusText = document.getElementById('multiStatusText');
+
+        async function captureFrame() {
+            const liveStream = document.getElementById('liveStream');
+            let attempts = 0;
+            while (attempts < 8) {
+                if (liveStream.complete && liveStream.naturalWidth > 0) break;
+                if (attempts === 4) liveStream.src = liveStream.src.split('?')[0] + '?t=' + new Date().getTime();
+                await new Promise(r => setTimeout(r, 500));
+                attempts++;
+            }
+
+            if (!liveStream.complete || liveStream.naturalWidth === 0) {
+                throw new Error("Video stream not ready. Please refresh.");
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = liveStream.naturalWidth;
+            canvas.height = liveStream.naturalHeight;
+            canvas.getContext('2d').drawImage(liveStream, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/jpeg', 0.95);
+        }
+
+        captureFaceBtn.addEventListener('click', async () => {
+            try {
+                setStatus('Capturing...', 'info');
+                const dataUrl = await captureFrame();
+                const result = await sendEnrollment(dataUrl);
+                if (result.success) setStatus(result.message, 'success');
+                else setStatus(result.message, 'error');
+            } catch (e) {
+                setStatus(e.message, 'error');
+            }
+        });
+
+        multiCaptureBtn.addEventListener('click', async () => {
+            try { await captureFrame(); } catch (e) { return setStatus(e.message, 'error'); }
+
+            multiCaptureBtn.disabled = true;
+            captureFaceBtn.disabled = true;
+            multiProgress.classList.remove('hidden');
+            multiStatusText.classList.remove('hidden');
+
+            let successCount = 0;
+            const totalCaptures = 5;
+
+            for (let i = 1; i <= totalCaptures; i++) {
+                multiStatusText.textContent = `Capturing frame ${i}/${totalCaptures}...`;
+                multiProgressBar.style.width = `${(i / totalCaptures) * 100}%`;
+                try {
+                    const dataUrl = await captureFrame();
+                    const result = await sendEnrollment(dataUrl);
+                    if (result.success) successCount++;
+                } catch (e) { console.error("Capture failed frame " + i, e); }
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            multiCaptureBtn.disabled = false;
+            captureFaceBtn.disabled = false;
+            multiProgress.classList.add('hidden');
+            multiStatusText.classList.add('hidden');
+
+            if (successCount >= 3) setStatus(`Enrollment Success! ✅ Captured ${successCount}/${totalCaptures} valid frames.`, 'success');
+            else setStatus(`Enrollment Partial. Only ${successCount}/${totalCaptures} valid. Try again.`, 'error');
+        });
+
+        // --- UPLOAD LOGIC ---
+        const fileInput = document.getElementById('uploadPhoto');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewContainer = document.getElementById('previewContainer');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (evt) {
+                    imagePreview.src = evt.target.result;
+                    previewContainer.classList.remove('hidden');
+                    uploadBtn.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        uploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            setStatus('Uploading...', 'info');
+            try {
+                const formData = new FormData();
+                formData.append('user_id', studentId);
+                formData.append('photo', file);
+                const response = await fetch('{{ url_for("enroll_face_upload") }}', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) setStatus(result.message, 'success');
+                else setStatus(result.message, 'error');
+            } catch (e) { setStatus('Upload failed: ' + e.message, 'error'); }
+        });
+
+        document.getElementById('saveExitBtn').addEventListener('click', async () => {
+            const returnUrl = document.getElementById('returnUrl').value || "{{ url_for('admin_user_management') }}";
+            try {
+                const response = await fetch("{{ url_for('finalize_enrollment') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: studentId })
+                });
+                if (response.ok) {
+                    const res = await response.json();
+                    window.location.href = returnUrl;
+                } else {
+                    // Even if finalize endpoint fails/is missing, since enrollment was a success (green status), proceed.
+                    window.location.href = returnUrl;
+                }
+            } catch (e) {
+                window.location.href = returnUrl;
+            }
+        });
+    });
+</script>
+{% endblock %}

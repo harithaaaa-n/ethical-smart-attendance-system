@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+  <link rel="stylesheet" as="style" onload="this.rel='stylesheet'"
+    href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
+  <title>Enroll Student - ADHIYAMAAN Attendance System</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f0f0f;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="relative flex size-full min-h-screen flex-col bg-[#1a1a1a] dark group/design-root overflow-x-hidden"
+    style='font-family: Inter, "Noto Sans", sans-serif;'>
+    <div class="layout-container flex h-full grow flex-col">
+      <header
+        class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#363636] px-10 py-3">
+        <div class="flex items-center gap-4 text-white">
+          <div class="size-4">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g clip-path="url(#clip0_6_330)">
+                <path fill-rule="evenodd" clip-rule="evenodd"
+                  d="M24 0.757355L47.2426 24L24 47.2426L0.757355 24L24 0.757355ZM21 35.7574V12.2426L9.24264 24L21 35.7574Z"
+                  fill="currentColor"></path>
+              </g>
+              <defs>
+                <clipPath id="clip0_6_330">
+                  <rect width="48" height="48" fill="white"></rect>
+                </clipPath>
+              </defs>
+            </svg>
+          </div>
+          <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em]">ADHIYAMAAN COLLEGE OF ENGINEERING -
+            DEPARTMENT OF CSE (CYBERSECURITY)
+          </h2>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-white">Welcome, {{ session.full_name }}</span>
+          <a href="{{ url_for('logout') }}" class="text-white text-sm font-medium leading-normal">Logout</a>
+        </div>
+      </header>
+
+      <div class="flex flex-col items-center justify-center p-4">
+        <h2 class="text-white text-2xl font-bold mb-4">Enroll Student Face</h2>
+
+        <div class="flex gap-8 w-full max-w-4xl">
+          <div class="flex-1">
+            <div class="border-2 border-white rounded-lg overflow-hidden mb-4">
+              <img id="enrollmentVideo" src="{{ url_for('enrollment_video_feed', student_id=0) }}" width="640"
+                height="480">
+            </div>
+
+            <div class="flex justify-center">
+              <button id="captureBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">
+                Capture Face
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1">
+            <h3 class="text-white text-xl font-medium mb-4">Select Student</h3>
+            <select id="studentSelect" class="w-full p-3 rounded-lg bg-[#363636] text-white mb-4">
+              <option value="">Select a student</option>
+              {% for student in students %}
+              <option value="{{ student.id }}">{{ student.full_name }} ({{ student.roll_number }})</option>
+              {% endfor %}
+            </select>
+
+            <div id="statusMessage" class="text-white p-4 rounded-lg hidden"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const studentSelect = document.getElementById('studentSelect');
+      const enrollmentVideo = document.getElementById('enrollmentVideo');
+      const captureBtn = document.getElementById('captureBtn');
+      const statusMessage = document.getElementById('statusMessage');
+
+      studentSelect.addEventListener('change', function () {
+        const studentId = this.value;
+        if (studentId) {
+          enrollmentVideo.src = "{{ url_for('enrollment_video_feed', student_id=0) }}".replace('0', studentId);
+          captureBtn.disabled = false;
+        } else {
+          captureBtn.disabled = true;
+        }
+      });
+
+      captureBtn.addEventListener('click', function () {
+        const studentId = studentSelect.value;
+        if (!studentId) {
+          showStatus('Please select a student first', 'error');
+          return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(enrollmentVideo, 0, 0, canvas.width, canvas.height);
+
+        const imageData = canvas.toDataURL('image/jpeg');
+
+        fetch("{{ url_for('capture_face') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            student_id: studentId,
+            image_data: imageData
+          })
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              showStatus(data.message, 'success');
+            } else {
+              showStatus(data.message, 'error');
+            }
+          })
+          .catch(error => {
+            showStatus('Error: ' + error.message, 'error');
+          });
+      });
+
+      function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.classList.remove('hidden');
+        statusMessage.classList.remove('bg-green-800', 'bg-red-800');
+
+        if (type === 'success') {
+          statusMessage.classList.add('bg-green-800');
+        } else {
+          statusMessage.classList.add('bg-red-800');
+        }
+
+        setTimeout(() => {
+          statusMessage.classList.add('hidden');
+        }, 5000);
+      }
+    });
+  </script>
+</body>
+
+</html>

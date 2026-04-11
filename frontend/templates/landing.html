@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>ACE Intelligent Attendance | Professional Biometric Portal</title>
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    {% include 'includes/theme_config.html' %}
+
+    <!-- TailWind CSS & Alpine.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.5/cdn.min.js" defer></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f4ff',
+                            100: '#d9e2ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        },
+                        slate: {
+                            850: '#111827',
+                            950: '#030712',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/css">
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        .animate-float {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        body.light-mode .glass {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow:
+                0 10px 40px -10px rgba(31, 38, 135, 0.1),
+                inset 0 0 0 1px rgba(255, 255, 255, 1);
+        }
+
+        .role-glow {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+        }
+
+        .bg-pattern {
+            background-image: radial-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        .title-gradient {
+            background: linear-gradient(135deg, #60a5fa 0%, #22d3ee 50%, #818cf8 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card-glow-brand:hover {
+            box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .card-glow-cyan:hover {
+            box-shadow: 0 0 40px -10px rgba(34, 211, 238, 0.3);
+            border-color: rgba(34, 211, 238, 0.4);
+        }
+
+        .card-glow-indigo:hover {
+            box-shadow: 0 0 40px -10px rgba(129, 140, 248, 0.3);
+            border-color: rgba(129, 140, 248, 0.4);
+        }
+
+        ::selection {
+            background: #3b82f6;
+            color: white;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body class="font-sans text-slate-300 antialiased overflow-x-hidden bg-pattern" x-data="{ role: 'faculty' }">
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 w-full z-50 glass border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="h-14 w-auto flex items-center justify-center overflow-hidden">
+                    <img src="{{ url_for('static', filename='ace-logo-animated.gif') }}" alt="ACE Logo"
+                        class="h-full w-auto object-contain transition-all duration-500 hover:scale-110">
+                </div>
+                <div class="border-l border-white/10 pl-4">
+                    <h1 class="text-white font-display font-black text-xl tracking-tight leading-tight">ADHIYAMAAN
+                        COLLEGE OF ENGINEERING</h1>
+                    <p class="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase">DEPARTMENT OF CSE
+                        (CYBERSECURITY)</p>
+                </div>
+            </div>
+
+            <div class="hidden md:flex items-center gap-8 text-[11px] font-black uppercase tracking-[0.2em]">
+                <a href="#" class="text-slate-700 hover:text-brand-600 transition-all duration-300">Home</a>
+                <a href="#features" class="text-slate-700 hover:text-brand-600 transition-all duration-300">Features</a>
+                <a href="#roles" class="text-slate-700 hover:text-brand-600 transition-all duration-300">Portals</a>
+                <a href="#about" class="text-slate-700 hover:text-brand-600 transition-all duration-300">Institution</a>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="mr-2 scale-75">
+                    {% include 'includes/theme_toggle_btn.html' %}
+                </div>
+                <a href="{{ url_for('login_page') }}"
+                    class="px-5 py-2.5 rounded-full bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-600/20 active:scale-95">
+                    Login
+                </a>
+            </div>
+
+            <!-- Mobile Menu Toggle -->
+            <div class="md:hidden flex items-center gap-4">
+                <a href="{{ url_for('emergency_access') }}" class="text-red-500 hover:text-red-400"
+                    title="Emergency Access">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </a>
+                <button class="text-white text-xl">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen flex items-center pt-20 overflow-hidden">
+        <!-- Background Assets & Decorative Orbs -->
+        <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+            <img src="{{ url_for('static', filename='hero-bg.png') }}"
+                class="w-full h-full object-cover transition-opacity duration-700"
+                :class="document.body.classList.contains('light-mode') ? 'opacity-10' : 'opacity-20'" alt="Background">
+
+            <!-- Dynamic Decorative Orbs -->
+            <div
+                class="absolute top-1/4 -left-20 w-[500px] h-[500px] bg-brand-500/10 rounded-full blur-[120px] animate-pulse">
+            </div>
+            <div class="absolute bottom-1/4 -right-20 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[150px]"
+                style="animation: float 8s infinite ease-in-out"></div>
+            <div
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/5 rounded-full blur-[180px]">
+            </div>
+
+            <div class="absolute inset-0 hero-mask"></div>
+        </div>
+
+        <div class="container max-w-7xl mx-auto px-6 relative z-10">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <div class="text-left">
+                    <div
+                        class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">
+                        <span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse"></span>
+                        Next-Gen Biometric Protocol
+                    </div>
+                    <!-- Role Toggle -->
+                    <div
+                        class="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-900/40 light:bg-slate-100/80 backdrop-blur-xl rounded-[1.25rem] w-fit mb-10 border border-white/10 dark:border-white/10 light:border-slate-200 shadow-2xl">
+                        <button @click="role = 'student'"
+                            :class="role === 'student' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/40' : 'text-slate-400 hover:text-white hover:bg-white/5'"
+                            class="px-7 py-3 rounded-[0.85rem] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 flex items-center gap-2.5">
+                            <i class="fas fa-user-graduate text-xs"></i>
+                            Student
+                        </button>
+                        <button @click="role = 'faculty'"
+                            :class="role === 'faculty' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/40' : 'text-slate-400 hover:text-white hover:bg-white/5'"
+                            class="px-7 py-3 rounded-[0.85rem] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 flex items-center gap-2.5">
+                            <i class="fas fa-chalkboard-teacher text-xs"></i>
+                            Faculty
+                        </button>
+                        <button @click="role = 'admin'"
+                            :class="role === 'admin' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/40' : 'text-slate-400 hover:text-white hover:bg-white/5'"
+                            class="px-7 py-3 rounded-[0.85rem] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 flex items-center gap-2.5">
+                            <i class="fas fa-user-shield text-xs"></i>
+                            Admin
+                        </button>
+                    </div>
+
+                    <h1 class="text-6xl md:text-7xl font-display font-black text-white leading-[1.05] tracking-tight mb-6"
+                        x-transition:enter="transition ease-out duration-500"
+                        x-transition:enter-start="opacity-0 translate-y-4"
+                        x-transition:enter-end="opacity-100 translate-y-0">
+                        Intelligent <br>
+                        <span class="title-gradient font-extrabold uppercase">Attendance</span>
+                        <span
+                            x-text="role === 'student' ? 'Student Hub' : (role === 'faculty' ? 'Faculty Station' : 'Admin Command Center')"></span>
+                    </h1>
+                    <p class="max-w-lg text-lg text-[var(--text-secondary)] leading-relaxed mb-10 font-medium h-24"
+                        x-text="role === 'student' ? 'Access your personalized attendance records, view timetables, and monitor academic progress with ease.' : (role === 'faculty' ? 'Empower your classroom with automated biometric tracking and real-time student engagement insights.' : 'Complete oversight of campus security, academic structures, and institutional reporting at your fingertips.')">
+                    </p>
+
+                    <div class="flex flex-wrap gap-5">
+                        <a href="{{ url_for('login_page') }}"
+                            class="px-12 py-5 bg-gradient-to-r from-brand-600 to-brand-500 light:from-brand-600 light:to-indigo-600 text-white rounded-[1.25rem] font-black uppercase tracking-widest text-xs hover:scale-105 hover:shadow-[0_20px_50px_-10px_rgba(59,130,246,0.4)] transition-all transform active:scale-95 flex items-center gap-4">
+                            <span
+                                x-text="role === 'student' ? 'Launch Student Hub' : (role === 'faculty' ? 'Open Faculty Station' : 'Access Command Center')"></span>
+                            <i class="fas fa-arrow-right text-[10px]"></i>
+                        </a>
+                    </div>
+
+                    <div class="mt-12 flex items-center gap-6">
+                        <div class="flex -space-x-3">
+                            <div
+                                class="w-10 h-10 rounded-full border-2 border-[var(--bg-color)] bg-slate-200 dark:bg-slate-800">
+                            </div>
+                            <div
+                                class="w-10 h-10 rounded-full border-2 border-[var(--bg-color)] bg-slate-300 dark:bg-slate-700">
+                            </div>
+                            <div
+                                class="w-10 h-10 rounded-full border-2 border-[var(--bg-color)] bg-slate-400 dark:bg-slate-600">
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-white">Trusted by Faculty</p>
+                            <p class="text-xs text-slate-500">CSE (Cybersecurity) Department</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hidden lg:block relative">
+                    <div class="relative z-20 animate-float">
+                        <div class="glass p-5 rounded-[3rem] shadow-2xl border border-white/20">
+                            <div
+                                class="bg-slate-950 dark:bg-slate-950 light:bg-white rounded-[2.5rem] overflow-hidden aspect-[4/3] flex items-center justify-center relative border border-white/10 dark:border-white/10 light:border-slate-200">
+                                <img src="{{ url_for('static', filename='attendance.png') }}"
+                                    alt="Attendance App Interface"
+                                    class="w-full h-full object-cover transition-all duration-1000 hover:scale-110">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Decorative Orbs (Hero Right) -->
+                    <div
+                        class="absolute -top-32 -right-32 w-80 h-80 bg-brand-600/30 rounded-full blur-[120px] mix-blend-screen opacity-50">
+                    </div>
+                    <div
+                        class="absolute -bottom-32 -left-32 w-96 h-96 bg-cyan-600/20 rounded-full blur-[150px] mix-blend-screen opacity-50">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-32">
+        <div class="container max-w-7xl mx-auto px-6 text-center">
+            <span
+                class="text-brand-500 font-black uppercase tracking-[0.4em] text-[10px] mb-4 block">Capabilities</span>
+            <h2 class="text-4xl md:text-5xl font-display font-black text-white mb-6 uppercase">Modern Core Modules</h2>
+            <p class="text-[var(--text-secondary)] max-w-2xl mx-auto text-lg font-medium mb-16">
+                Comprehensive tools designed to automate attendance and streamline academic administration.
+            </p>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div
+                    class="feature-card glass rounded-[3rem] p-10 text-left transition-all duration-500 border border-white/5 card-glow-brand hover:-translate-y-3 group bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-16 h-16 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-500 mb-8 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+                        <i class="fas fa-video text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-black text-white mb-4">Live Recognition</h3>
+                    <p class="text-[var(--text-secondary)] text-sm leading-relaxed font-medium opacity-80">Real-time
+                        biometric
+                        scanning for
+                        high-frequency individual verification at campus checkpoints.</p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div
+                    class="feature-card glass rounded-[3rem] p-10 text-left transition-all duration-500 border border-white/5 card-glow-cyan hover:-translate-y-3 group bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-16 h-16 bg-cyan-500/10 rounded-2xl flex items-center justify-center text-cyan-500 mb-8 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+                        <i class="fas fa-users-viewfinder text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-black text-white mb-4">Class Photo Mode</h3>
+                    <p class="text-[var(--text-secondary)] text-sm leading-relaxed font-medium opacity-80">Capture an
+                        entire
+                        lecture hall in one
+                        shot. AI isolates and identifies every face in seconds.</p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div
+                    class="feature-card glass rounded-[3rem] p-10 text-left transition-all duration-500 border border-white/5 card-glow-indigo hover:-translate-y-3 group bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 mb-8 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+                        <i class="fas fa-keyboard text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-black text-white mb-4">Manual Entry</h3>
+                    <p class="text-[var(--text-secondary)] text-sm leading-relaxed font-medium opacity-80">Robust
+                        fallback system
+                        for manual
+                        marking, ensuring records are always up-to-date and accurate.</p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div
+                    class="feature-card glass rounded-[3rem] p-10 text-left transition-all duration-500 border border-white/5 card-glow-indigo hover:-translate-y-3 group bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 mb-8 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+                        <i class="fas fa-university text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-black text-white mb-4">Academic Setup</h3>
+                    <p class="text-[var(--text-secondary)] text-sm leading-relaxed font-medium opacity-80">Centralized
+                        management
+                        for
+                        Departments, Batches, Subjects, and Semester configurations.</p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div
+                    class="feature-card glass rounded-[3rem] p-10 text-left transition-all duration-500 border border-white/5 card-glow-brand hover:-translate-y-3 group bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500 mb-8 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+                        <i class="fas fa-calendar-alt text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-black text-white mb-4">Smart Timetable</h3>
+                    <p class="text-[var(--text-secondary)] text-sm leading-relaxed font-medium opacity-80">Intelligent
+                        scheduling
+                        system that
+                        automatically links attendance sessions to specific hours.</p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div
+                    class="feature-card glass rounded-[3rem] p-10 text-left transition-all duration-500 border border-white/5 card-glow-cyan hover:-translate-y-3 group bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center text-rose-500 mb-8 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+                        <i class="fas fa-chart-line text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-black text-white mb-4">Advanced Analytics</h3>
+                    <p class="text-[var(--text-secondary)] text-sm leading-relaxed font-medium opacity-80">Exportable
+                        reports and
+                        visual
+                        dashboards providing deep insights into student engagement.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Portals Section -->
+    <section id="roles" class="py-32">
+        <div class="container max-w-5xl mx-auto px-6 text-center">
+            <h2 class="text-4xl font-display font-black text-white mb-12 uppercase tracking-tight">Dedicated Access
+                Portals</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div
+                    class="glass p-10 rounded-[3rem] text-left group border border-white/5 card-glow-brand hover:-translate-y-2 transition-all duration-500 bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-12 h-12 bg-brand-600/10 rounded-xl flex items-center justify-center text-brand-500 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-chalkboard-teacher text-xl"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-black text-white mb-4">Faculty & Staff</h4>
+                    <p class="text-slate-400 mb-8 font-medium text-sm leading-relaxed">Mark attendance, manage subjects,
+                        and view
+                        student
+                        performance reports.</p>
+                    <a href="{{ url_for('login_page') }}"
+                        class="inline-flex items-center gap-3 text-brand-500 font-black uppercase tracking-widest text-[10px] group-hover:gap-5 transition-all">
+                        Enter Faculty Portal <i class="fas fa-arrow-right text-[8px]"></i>
+                    </a>
+                </div>
+                <div
+                    class="glass p-10 rounded-[3rem] text-left group border border-white/5 card-glow-cyan hover:-translate-y-2 transition-all duration-500 bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-12 h-12 bg-cyan-600/10 rounded-xl flex items-center justify-center text-cyan-500 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-user-graduate text-xl"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-black text-white mb-4">Student Portal</h4>
+                    <p class="text-slate-400 mb-8 font-medium text-sm leading-relaxed">View personalized attendance
+                        history, timetables,
+                        and academic performance metrics.</p>
+                    <a href="{{ url_for('login_page') }}"
+                        class="inline-flex items-center gap-3 text-cyan-500 font-black uppercase tracking-widest text-[10px] group-hover:gap-5 transition-all">
+                        Student Login <i class="fas fa-chevron-right text-[8px]"></i>
+                    </a>
+                </div>
+                <div
+                    class="glass p-10 rounded-[3rem] text-left group border border-white/5 card-glow-indigo hover:-translate-y-2 transition-all duration-500 bg-gradient-to-br from-white/5 to-transparent">
+                    <div
+                        class="w-12 h-12 bg-indigo-600/10 rounded-xl flex items-center justify-center text-indigo-500 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-shield-halved text-xl"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-black text-white mb-4">Administration</h4>
+                    <p class="text-slate-400 mb-8 font-medium text-sm leading-relaxed">Full system control, academic
+                        configuration, and
+                        overall
+                        campus analytics.</p>
+                    <a href="{{ url_for('login_page') }}"
+                        class="inline-flex items-center gap-3 text-white font-black uppercase tracking-widest text-[10px] group-hover:gap-5 transition-all">
+                        Administrator Login <i class="fas fa-user-shield text-[8px]"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Institution Section -->
+    <section id="about" class="py-32">
+        <div class="container max-w-7xl mx-auto px-6">
+            <div class="glass rounded-[3rem] p-12 md:p-16 relative overflow-hidden">
+                <div class="flex flex-col gap-12 relative z-10">
+                    <div>
+                        <span
+                            class="text-brand-500 font-black uppercase tracking-[0.4em] text-[10px] mb-6 block">Departmental
+                            Leadership</span>
+                        <h2
+                            class="text-4xl md:text-5xl font-display font-black text-white mb-8 uppercase leading-tight">
+                            Department
+                            of <br> Cyber Security</h2>
+                        <div class="space-y-6 text-slate-400 font-medium leading-relaxed max-w-4xl text-lg">
+                            <p>As a pioneering hub for digital security and innovation at ACE, our department is
+                                dedicated to shaping the next generation of security professionals through specialized
+                                research and practical application.</p>
+                            <p>The ACE Intelligent Attendance system is a flagship initiative developed by our faculty
+                                to integrate biometric security with institutional efficiency, providing a controlled
+                                environment for academic excellence.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+                        <div
+                            class="glass p-3 rounded-[3rem] border-white/10 shadow-2xl overflow-hidden aspect-[16/9] md:aspect-auto h-72 group">
+                            <img src="{{ url_for('static', filename='dept-tech.png') }}"
+                                class="rounded-[2.25rem] w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                                alt="Security Technology">
+                        </div>
+                        <div
+                            class="glass p-3 rounded-[3rem] border-white/10 shadow-2xl overflow-hidden aspect-[16/9] md:aspect-auto h-72 mt-0 md:mt-12 group">
+                            <img src="{{ url_for('static', filename='dept-lab.png') }}"
+                                class="rounded-[2.25rem] w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                                alt="Cyber Security Lab">
+                        </div>
+                    </div>
+                </div>
+                <!-- Background Decoration (Refined) -->
+                <div
+                    class="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-brand-600/10 to-transparent -skew-x-12 translate-x-1/2">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <!-- Footer -->
+    <footer class="pt-24 pb-12 border-t border-white/5 relative overflow-hidden">
+        <!-- Decorative background elements -->
+        <div class="absolute top-0 right-0 w-64 h-64 bg-brand-600/5 rounded-full blur-[100px] -translate-y-1/2"></div>
+
+        <div class="container max-w-7xl mx-auto px-6 relative z-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+                <!-- Column 1: Brand -->
+                <div class="lg:col-span-1">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="h-10 w-auto flex items-center justify-center overflow-hidden">
+                            <img src="{{ url_for('static', filename='ace-logo-animated.gif') }}" alt="ACE Logo"
+                                class="h-full w-auto object-contain">
+                        </div>
+                        <span class="text-white font-display font-extrabold tracking-tight uppercase text-lg">ACE <span
+                                class="text-brand-500">Intelligent</span></span>
+                    </div>
+                    <p class="text-slate-400 text-sm font-medium leading-relaxed mb-8">
+                        Revolutionizing academic tracking through biometric innovation and cyber security protocols.
+                        Built for ADHIYAMAAN COLLEGE OF ENGINEERING - DEPARTMENT OF CSE (CYBERSECURITY) 2024.
+                    </p>
+                    <div class="flex gap-4">
+                        <a href="#"
+                            class="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-brand-600 hover:text-white transition-all">
+                            <i class="fab fa-linkedin-in text-sm"></i>
+                        </a>
+                        <a href="#"
+                            class="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-brand-600 hover:text-white transition-all">
+                            <i class="fab fa-github text-sm"></i>
+                        </a>
+                        <a href="#"
+                            class="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-brand-600 hover:text-white transition-all">
+                            <i class="fas fa-globe text-sm"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Column 2: Quick Portals -->
+                <div>
+                    <h4 class="text-white font-display font-bold uppercase tracking-widest text-[11px] mb-8">Access
+                        Portals</h4>
+                    <ul class="space-y-4">
+                        <li><a href="{{ url_for('login_page') }}"
+                                class="text-slate-500 hover:text-brand-500 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2"><i
+                                    class="fas fa-chalkboard-teacher w-4"></i> Faculty Portal</a></li>
+                        <li><a href="{{ url_for('login_page') }}"
+                                class="text-slate-500 hover:text-cyan-500 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2"><i
+                                    class="fas fa-user-graduate w-4"></i> Student Portal</a></li>
+                        <li><a href="{{ url_for('login_page') }}"
+                                class="text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2"><i
+                                    class="fas fa-user-shield w-4"></i> Administration</a></li>
+                        <li><a href="{{ url_for('emergency_access') }}"
+                                class="text-slate-500 hover:text-red-500 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2"><i
+                                    class="fas fa-exclamation-triangle w-4"></i> Emergency Access</a></li>
+                    </ul>
+                </div>
+
+                <!-- Column 3: Platform -->
+                <div>
+                    <h4 class="text-white font-display font-bold uppercase tracking-widest text-[11px] mb-8">Platform
+                    </h4>
+                    <ul class="space-y-4 text-slate-500 font-bold uppercase tracking-widest text-[11px]">
+                        <li><a href="#features" class="hover:text-brand-500 transition-colors">Core Capabilities</a>
+                        </li>
+                        <li><a href="#about" class="hover:text-brand-500 transition-colors">Instituition Profile</a>
+                        </li>
+                        <li><a href="#" class="hover:text-brand-500 transition-colors">Release Notes</a></li>
+                        <li><a href="#" class="hover:text-brand-500 transition-colors">Documentation</a></li>
+                    </ul>
+                </div>
+
+                <!-- Column 4: Contact & Institution -->
+                <div>
+                    <h4 class="text-white font-display font-bold uppercase tracking-widest text-[11px] mb-8">Institution
+                        Info</h4>
+                    <div class="space-y-6">
+                        <div>
+                            <p class="text-white text-sm font-bold mb-1">ADHIYAMAAN COLLEGE OF ENGINEERING</p>
+                            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Autonomous
+                                Institution</p>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 text-brand-500"><i class="fas fa-location-dot"></i></div>
+                            <p class="text-slate-400 text-xs font-medium leading-relaxed">
+                                Dr. M.G.R. Nagar, Hosur,<br>
+                                Krishnagiri District, TN-635130
+                            </p>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 text-brand-500"><i class="fas fa-envelope"></i></div>
+                            <p class="text-slate-400 text-xs font-medium">cybersec@adhiyamaan.ac.in</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
+                <p class="text-slate-600 text-[10px] font-bold uppercase tracking-[0.2em] text-center md:text-left">
+                    © 2024 ADHIYAMAAN COLLEGE OF ENGINEERING. All rights reserved. <br>
+                    DEPARTMENT OF CSE (CYBERSECURITY).
+                </p>
+
+                <div class="flex gap-8 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    <a href="#" class="hover:text-brand-500 transition-colors">Privacy Policy</a>
+                    <a href="#" class="hover:text-brand-500 transition-colors">Terms of Service</a>
+                    <a href="#" class="hover:text-brand-500 transition-colors">Compliance</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

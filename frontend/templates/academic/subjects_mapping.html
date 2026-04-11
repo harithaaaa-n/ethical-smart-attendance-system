@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+
+{% block title %}Subjects & Mapping - Academic Setup{% endblock %}
+{% block header %}Academic Setup{% endblock %}
+{% block subheader %}Manage subjects and their assignments to classes{% endblock %}
+
+{% block content %}
+<!-- Main Tabs (Shared with other academic pages) -->
+
+
+<!-- Academic Sub-Tabs -->
+<div class="flex overflow-x-auto gap-2 mb-8 pb-2">
+    <a href="{{ url_for('academic.departments') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Departments</a>
+    <a href="{{ url_for('academic.years') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Batches</a>
+    <a href="{{ url_for('academic.subjects') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-blue-600 text-white shadow-lg shadow-blue-900/20">Subjects
+        & Mapping</a>
+    <a href="{{ url_for('academic.classes') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Classes</a>
+</div>
+
+<!-- Unified Content Section -->
+<!-- Unified Content Section -->
+<div class="space-y-8">
+
+    <!-- 🔹 SECTION 1: Class Context Selector (COMMON) -->
+    <div class="card p-6 mb-8 border-l-4 border-l-orange-500 bg-orange-500/5">
+        <div class="flex flex-col md:flex-row items-end gap-6">
+            <div class="flex-1 w-full">
+                <h4 class="text-sm font-bold text-orange-400 mb-4 flex items-center gap-2">
+                    <i class="fas fa-filter"></i> Global Class Context
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Department</label>
+                        <select id="ctx_dept_id" onchange="syncContext()"
+                            class="w-full p-2.5 bg-[#141414] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-orange-500">
+                            <option value="">All Departments</option>
+                            {% for d in departments %}
+                            <option value="{{ d.id }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Batch</label>
+                        <select id="ctx_batch_id" onchange="syncContext(); onBatchContextChange();"
+                            class="w-full p-2.5 bg-[#141414] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-orange-500">
+                            <option value="">All Batches</option>
+                            {% for b in batches %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div id="ctx_year_display" class="text-[10px] text-orange-400 mt-1 font-mono hidden">
+                            Current Year: <span class="year_val font-bold"></span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Semester</label>
+                        <select id="ctx_semester" onchange="syncContext()"
+                            class="w-full p-2.5 bg-[#141414] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-orange-500">
+                            <option value="">All Semesters</option>
+                            {% for i in range(1, 9) %}
+                            <option value="{{ i }}">Semester {{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Section (Optional)</label>
+                        <select id="ctx_section_id" onchange="syncContext()"
+                            class="w-full p-2.5 bg-[#141414] border border-[#333] rounded-lg text-white outline-none focus:ring-2 focus:ring-orange-500">
+                            {% if sections %}
+                            <option value="">All Sections</option>
+                            {% for s in sections %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                            {% else %}
+                            <option value="">No section option</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <button onclick="resetContext()"
+                class="p-2.5 bg-[#2d2d2d] hover:bg-[#3d3d3d] rounded-lg text-gray-400 hover:text-white transition-colors h-fit mb-0.5"
+                title="Reset Filters">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Add Subject Form (Enhanced with Inline Mapping) -->
+        <div class="card p-6 border-t-4 border-t-green-500 h-fit">
+            <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <i class="fas fa-plus-circle text-green-500"></i> Create Subject & Map
+            </h3>
+            <form action="{{ url_for('academic.subjects') }}" method="POST" class="flex flex-col gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Subject Name <span
+                            class="text-red-500">*</span></label>
+                    <input type="text" name="name" placeholder="e.g. Data Structures" required
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all placeholder-gray-600">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Code</label>
+                        <input type="text" name="code" placeholder="CS301"
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Regulation</label>
+                        <input type="text" name="regulation" placeholder="R2024"
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Type</label>
+                        <select name="subject_type"
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                            <option value="Theory">Theory</option>
+                            <option value="Laboratory">Laboratory</option>
+                            <option value="Internals">Internals</option>
+                            <option value="Integrated">Integrated</option>
+                            <option value="Library">Library</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                                class="text-red-500">*</span></label>
+                        <select name="batch_id" required id="form_batch_id"
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                            <option value="">Select Batch</option>
+                            {% for b in batches %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Credits</label>
+                        <input type="number" name="credits" value="3" step="0.5" min="0"
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Semester</label>
+                        <input type="number" name="semester" id="form_semester" placeholder="1-8" min="1" max="8"
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                </div>
+
+                <!-- Inline Mapping (Optional) -->
+                <div class="border-t border-[#2d2d2d] pt-4 mt-2">
+                    <h4 class="text-xs font-bold text-blue-400 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                        <i class="fas fa-link"></i> Quick Map (Optional)
+                    </h4>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase">Target Dept</label>
+                            <select name="map_dept_id"
+                                class="w-full p-2.5 bg-[#1a1a1a] border border-[#333] rounded-lg text-sm text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                                <option value="">-- No Mapping --</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase">Section</label>
+                                <select name="map_section_id"
+                                    class="w-full p-2.5 bg-[#1a1a1a] border border-[#333] rounded-lg text-sm text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                                    <option value="">All / Global</option>
+                                    {% for sec in sections %}
+                                    <option value="{{ sec.id }}">Sec {{ sec.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase">Scope</label>
+                                <select name="map_scope"
+                                    class="w-full p-2.5 bg-[#1a1a1a] border border-[#333] rounded-lg text-sm text-gray-300 focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                                    <option value="GLOBAL">All Sections</option>
+                                    <option value="SECTION">Specific Only</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-2 italic">
+                        * Automatically creates mapping after subject creation.
+                    </p>
+                </div>
+
+                <button type="submit"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl font-bold transition-all hover:scale-[1.02] shadow-lg shadow-green-900/20 active:scale-95 mt-2">
+                    Create & Map
+                </button>
+            </form>
+        </div>
+
+        <!-- Subjects Repository List (Unified) -->
+        <div class="card p-0 lg:col-span-2 overflow-hidden border-t-4 border-t-blue-500">
+            <div class="p-6 border-b border-[#2d2d2d] flex justify-between items-center bg-[#1c1c1c]">
+                <h3 class="font-bold flex items-center gap-2">
+                    <i class="fas fa-database text-blue-500"></i> Subject Repository
+                </h3>
+                <div class="text-xs text-gray-500 bg-[#252525] px-3 py-1 rounded-full border border-[#333]">
+                    Showing <span id="master_count">0</span> Subjects
+                </div>
+            </div>
+            <div class="overflow-x-auto min-h-[400px]">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-[#1a1a1a] text-xs font-bold text-gray-500 uppercase tracking-wider">
+                            <th class="p-4 border-b border-[#2d2d2d]">Subject Details</th>
+                            <th class="p-4 border-b border-[#2d2d2d]">Type</th>
+                            <th class="p-4 border-b border-[#2d2d2d]">Mapped Classes</th>
+                            <th class="p-4 border-b border-[#2d2d2d] text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="master_tbody" class="text-sm">
+                        {% for sub in subjects %}
+                        <tr class="master-row hover:bg-white/5 transition-colors border-b border-[#2d2d2d] last:border-0"
+                            data-dept="{{ sub.department_id }}" data-batch="{{ sub.batch_id }}"
+                            data-sem="{{ sub.semester }}">
+                            <td class="p-4">
+                                <div class="font-bold text-white">{{ sub.name }}</div>
+                                <div class="text-xs text-gray-500 font-mono mt-0.5">{{ sub.code or '---' }} •
+                                    {{ sub.batch_name or 'Global' }}</div>
+                                <div class="text-[10px] text-gray-600 mt-1">Reg: {{ sub.regulation or '---' }}</div>
+                            </td>
+                            <td class="p-4">
+                                <span
+                                    class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">
+                                    {{ sub.subject_type }}
+                                </span>
+                                <div class="text-[10px] text-gray-500 mt-1">Cr: {{ sub.credits }} | Sem: {{ sub.semester
+                                    }}</div>
+                            </td>
+                            <td class="p-4">
+                                <!-- Inline Mappings Display -->
+                                <div class="flex flex-wrap gap-1 max-w-[200px]">
+                                    {% set ns = namespace(count=0) %}
+                                    {% for m in mappings %}
+                                    {% if m.subject_name == sub.name %}
+                                    <!-- Name match because subjects table doesn't map ID perfectly in legacy logic OR we iterate mappings matching ID? 'mappings' passed from route contains subject_name/code. 'sub' from subjects. -->
+                                    <!-- Let's check route logic. mappings has subject_name. subjects is list of subjects. Ideally we match IDs if available but legacy might match names. Let's assume ID match if possible or Name. The mappings query in DB manager joins on ID. So we can match Name roughly. OR better, we passed mappings list. In template, iterating whole mappings list inside subjects loop is N*M complexity. Can we optimize? 
+                                                The user just wants to see it. 
+                                                Hack: Filter mappings by Subject Link?
+                                            -->
+                                    {% if m.code == sub.code and m.subject_name == sub.name %}
+                                    <span
+                                        class="px-1.5 py-0.5 text-[10px] border border-purple-500/30 bg-purple-500/10 text-purple-300 rounded flex items-center gap-1"
+                                        title="{{ m.class_name }} - {{ m.dept_name }}">
+                                        {{ m.class_name }}
+                                        <form action="{{ url_for('academic.delete_mapping', id=m.id) }}" method="POST"
+                                            onsubmit="return confirm('Remove mapping?')" class="inline">
+                                            <button type="submit" class="hover:text-red-400 text-purple-400 ml-1"><i
+                                                    class="fas fa-times"></i></button>
+                                        </form>
+                                    </span>
+                                    {% set ns.count = ns.count + 1 %}
+                                    {% endif %}
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% if ns.count == 0 %}
+                                    <span class="text-[10px] text-gray-600 italic">Unmapped</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <div class="flex justify-end gap-2">
+                                    <button type="button" data-id="{{ sub.id }}" data-name="{{ sub.name }}"
+                                        data-code="{{ sub.code or '' }}" data-credits="{{ sub.credits }}"
+                                        data-semester="{{ sub.semester or '' }}"
+                                        data-regulation="{{ sub.regulation or '' }}"
+                                        data-type="{{ sub.subject_type or 'Theory' }}"
+                                        data-batch="{{ sub.batch_id or '' }}" onclick="openEditModal(this)"
+                                        class="w-8 h-8 rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all">
+                                        <i class="fas fa-edit text-xs"></i>
+                                    </button>
+                                    <form action="{{ url_for('academic.delete_subject', id=sub.id) }}" method="POST"
+                                        onsubmit="return confirm('Delete this subject permanently?');" class="inline">
+                                        <button type="submit"
+                                            class="w-8 h-8 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all">
+                                            <i class="fas fa-trash-alt text-xs"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr id="master_no_results" class="hidden">
+                            <td colspan="4" class="p-12 text-center text-gray-500 bg-[#161616]">
+                                <i class="fas fa-search-minus text-3xl mb-3 block opacity-20"></i>
+                                No subjects match the selected context/filters.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Subject Modal (Reused) -->
+<div id="editModal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+    <div class="card p-0 w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="p-6 bg-blue-600 flex justify-between items-center text-white">
+            <h3 class="text-xl font-bold flex items-center gap-2 underline decoration-blue-300 underline-offset-4">
+                <i class="fas fa-edit"></i> Edit Subject Master
+            </h3>
+            <button onclick="closeEditModal()" class="text-white/80 hover:text-white transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('academic.subjects') }}" method="POST" class="p-6 flex flex-col gap-5">
+            <input type="hidden" name="subject_id" id="edit_subject_id">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Subject Name
+                        <span class="text-red-500">*</span></label>
+                    <input type="text" name="name" id="edit_name" required
+                        class="w-full p-3.5 bg-[#141414] border border-[#333] rounded-xl text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase">Code</label>
+                        <input type="text" name="code" id="edit_code"
+                            class="w-full p-3 bg-[#141414] border border-[#333] rounded-xl text-white focus:border-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase">Regulation</label>
+                        <input type="text" name="regulation" id="edit_regulation"
+                            class="w-full p-3 bg-[#141414] border border-[#333] rounded-xl text-white focus:border-blue-500 outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase">Type</label>
+                        <select name="subject_type" id="edit_type"
+                            class="w-full p-3 bg-[#141414] border border-[#333] rounded-xl text-white outline-none">
+                            <option value="Theory">Theory</option>
+                            <option value="Laboratory">Laboratory</option>
+                            <option value="Internals">Internals</option>
+                            <option value="Integrated">Integrated</option>
+                            <option value="Library">Library</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase">Batch</label>
+                        <select name="batch_id" id="edit_batch" required
+                            class="w-full p-3 bg-[#141414] border border-[#333] rounded-xl text-white outline-none">
+                            <option value="">Select Batch</option>
+                            {% for b in batches %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase">Credits</label>
+                        <input type="number" name="credits" id="edit_credits" min="0" step="0.5"
+                            class="w-full p-3 bg-[#141414] border border-[#333] rounded-xl text-white outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase">Semester</label>
+                        <input type="number" name="semester" id="edit_semester" min="1" max="8"
+                            class="w-full p-3 bg-[#141414] border border-[#333] rounded-xl text-white outline-none">
+                    </div>
+                </div>
+
+                <!-- Inline Mapping for Edit (Optional) -->
+                <div class="border-t border-[#333] pt-4 mt-2">
+                    <h4 class="text-xs font-bold text-orange-400 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                        <i class="fas fa-link"></i> Add New Mapping (Optional)
+                    </h4>
+                    <div class="space-y-3">
+                        <div>
+                            <label
+                                class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-widest">Target
+                                Dept</label>
+                            <select name="map_dept_id"
+                                class="w-full p-3 bg-[#1a1a1a] border border-[#333] rounded-xl text-sm text-gray-300 focus:ring-1 focus:ring-orange-500 outline-none transition-all">
+                                <option value="">-- No New Mapping --</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label
+                                    class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-widest">Section</label>
+                                <select name="map_section_id"
+                                    class="w-full p-3 bg-[#1a1a1a] border border-[#333] rounded-xl text-sm text-gray-300 focus:ring-1 focus:ring-orange-500 outline-none transition-all">
+                                    <option value="">All / Global</option>
+                                    {% for sec in sections %}
+                                    <option value="{{ sec.id }}">Sec {{ sec.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-widest">Scope</label>
+                                <select name="map_scope"
+                                    class="w-full p-3 bg-[#1a1a1a] border border-[#333] rounded-xl text-sm text-gray-300 focus:ring-1 focus:ring-orange-500 outline-none transition-all">
+                                    <option value="GLOBAL">All Sections</option>
+                                    <option value="SECTION">Specific Only</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-2 italic">
+                        * This will add a new class mapping to the subject.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex gap-4 mt-2">
+                <button type="button" onclick="closeEditModal()"
+                    class="flex-1 py-4 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 rounded-xl font-bold transition-all border border-[#444]">Cancel</button>
+                <button type="submit"
+                    class="flex-2 py-4 px-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/40 transition-all hover:scale-[1.02] active:scale-95">Update
+                    Identity</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script id="classes-json" type="application/json">{{ classes | tojson | safe }}</script>
+<script>
+    const allClasses = JSON.parse(document.getElementById('classes-json').textContent);
+
+    // Context Selector & Filtering Core
+    function syncContext() {
+        const dept = document.getElementById('ctx_dept_id').value;
+        const batch = document.getElementById('ctx_batch_id').value;
+        const sem = document.getElementById('ctx_semester').value;
+        const sec = document.getElementById('ctx_section_id').value; // class_id if selected
+
+        // 1. Filter Master Table
+        filterMasterTable(dept, batch, sem);
+
+        // 2. Filter Mappings Table
+        filterMappingsTable(dept, batch, sem, sec);
+
+        // 3. Update Mapping Form Target
+        updateMappingContext(dept, batch, sem, sec);
+
+        // 4. Update Form Defaults
+        if (batch) document.getElementById('form_batch_id').value = batch;
+        if (sem) document.getElementById('form_semester').value = sem;
+    }
+
+    function filterMasterTable(dept, batch, sem) {
+        const rows = document.querySelectorAll('.master-row');
+        let count = 0;
+        rows.forEach(row => {
+            const d = row.dataset;
+            let show = true;
+            // Note: Subjects are batch-linked but not dept-linked in current schema (only class mappings are)
+            // But we can filter by batch and sem as requested.
+            if (batch && d.batch != batch) show = false;
+            if (sem && d.sem != sem) show = false;
+
+            row.classList.toggle('hidden', !show);
+            if (show) count++;
+        });
+        document.getElementById('master_count').innerText = count;
+        document.getElementById('master_no_results').classList.toggle('hidden', count > 0);
+    }
+
+    function filterMappingsTable(dept, batch, sem, sec_id) {
+        const rows = document.querySelectorAll('.mapping-row');
+        let count = 0;
+        rows.forEach(row => {
+            const d = row.dataset;
+            let show = true;
+            if (dept && d.dept != dept) show = false;
+            if (batch && d.batch != batch) show = false;
+            if (sem && d.sem != sem) show = false;
+            if (sec_id && d.sectionId != sec_id) show = false;
+
+            row.classList.toggle('hidden', !show);
+            if (show) count++;
+        });
+        document.getElementById('mapping_count').innerText = count;
+        document.getElementById('mapping_no_results_row').classList.toggle('hidden', count > 0);
+    }
+
+    function updateMappingContext(dept, batch, sem, sec_id) {
+        const info = document.getElementById('target_class_info');
+        const btn = document.getElementById('map_submit_btn');
+        const inputId = document.getElementById('map_class_id');
+
+        // Find matching class ID based on (Dept + Batch + SectionId)
+        let matchedClass = null;
+        if (dept && batch) {
+            matchedClass = allClasses.find(c =>
+                c.dept_id == dept &&
+                c.year_id == batch &&
+                (sec_id ? c.section_id == sec_id : !c.section_id)
+            );
+        }
+
+        if (matchedClass) {
+            info.innerHTML = `<i class="fas fa-check-circle"></i> Target: ${matchedClass.class_name}`;
+            info.className = 'text-xs font-bold text-purple-400';
+            btn.disabled = false;
+            inputId.value = matchedClass.id;
+        } else {
+            if (dept && batch) {
+                info.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Class combination not found';
+                info.className = 'text-xs font-bold text-red-400';
+            } else {
+                info.innerHTML = 'Select Dept & Batch to begin...';
+                info.className = 'text-xs font-bold text-gray-500';
+            }
+            btn.disabled = true;
+            inputId.value = '';
+        }
+
+        // Also trigger subject item visibility filter in mapping form
+        filterMappingSubjects();
+    }
+
+    function filterMappingSubjects() {
+        const query = document.getElementById('subject_search').value.toLowerCase();
+        const sem = document.getElementById('ctx_semester').value;
+        const batch = document.getElementById('ctx_batch_id').value;
+        const items = document.querySelectorAll('.map-item');
+        let count = 0;
+
+        items.forEach(item => {
+            const d = item.dataset;
+            let show = true;
+            if (query && !d.name.toLowerCase().includes(query) && !d.code.toLowerCase().includes(query)) show = false;
+            if (sem && d.sem != sem) show = false;
+            if (batch && d.batch != batch) show = false; // Only show subjects associated with this batch
+
+            item.classList.toggle('hidden', !show);
+            if (show) count++;
+        });
+        document.getElementById('mapping_no_results').classList.toggle('hidden', count > 0);
+    }
+
+    function resetContext() {
+        document.getElementById('ctx_dept_id').value = '';
+        document.getElementById('ctx_batch_id').value = '';
+        document.getElementById('ctx_semester').value = '';
+        document.getElementById('ctx_section_id').value = '';
+        syncContext();
+        onBatchContextChange();
+    }
+
+    function onBatchContextChange() {
+        const batchId = document.getElementById('ctx_batch_id').value;
+
+        // Fetch Year logic
+        const yearUI = document.getElementById('ctx_year_display');
+        const yearVal = yearUI ? yearUI.querySelector('.year_val') : null;
+        if (yearUI) yearUI.classList.add('hidden');
+
+        if (batchId) {
+            fetch(`/admin/user-management/academic/api/batch/${batchId}/details`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.current_year_display) {
+                        if (yearUI && yearVal) {
+                            const romans = ["I", "II", "III", "IV"];
+                            yearVal.textContent = data.current_year_display <= 4 ? romans[data.current_year_display - 1] : data.current_year_display;
+                            yearUI.classList.remove('hidden');
+                        }
+                    }
+                });
+        }
+    }
+
+    // Modal Logic
+    function openEditModal(btn) {
+        const d = btn.dataset;
+        document.getElementById('edit_subject_id').value = d.id;
+        document.getElementById('edit_name').value = d.name;
+        document.getElementById('edit_code').value = d.code;
+        document.getElementById('edit_credits').value = d.credits;
+        document.getElementById('edit_semester').value = d.semester;
+        document.getElementById('edit_regulation').value = d.regulation;
+        document.getElementById('edit_type').value = d.type;
+        document.getElementById('edit_batch').value = d.batch;
+
+        // Reset Mapping Fields
+        const modal = document.getElementById('editModal');
+        modal.querySelector('[name="map_dept_id"]').value = '';
+        modal.querySelector('[name="map_section_id"]').value = '';
+        modal.querySelector('[name="map_scope"]').value = 'GLOBAL';
+
+        modal.classList.replace('hidden', 'flex');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.replace('flex', 'hidden');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        syncContext();
+        // Hook depth change to update sections immediately
+        document.getElementById('ctx_dept_id').addEventListener('change', onBatchContextChange);
+    });
+</script>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #141414;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #444;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes zoomIn {
+        from {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    .animate-in {
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    .zoom-in {
+        animation: zoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+</style>
+{% endblock %}

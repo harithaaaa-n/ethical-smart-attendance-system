@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Classes - Academic Setup{% endblock %}
+{% block header %}Academic Setup{% endblock %}
+{% block subheader %}Manage academic classes{% endblock %}
+
+{% block content %}
+<!-- Main Tabs -->
+
+
+<!-- Academic Sub-Tabs -->
+<div class="flex overflow-x-auto gap-2 mb-8 pb-2">
+    <a href="{{ url_for('academic.departments') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Departments</a>
+    <a href="{{ url_for('academic.years') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Batches</a>
+    <!-- Sections Link Removed -->
+    <a href="{{ url_for('academic.subjects') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Subjects
+        & Mapping</a>
+    <a href="{{ url_for('academic.classes') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-blue-600 text-white shadow-lg shadow-blue-900/20">Classes</a>
+</div>
+
+
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Create Class Form -->
+    <div class="card p-6 border-t-4 border-t-green-500 h-fit lg:col-span-1">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-plus-circle text-green-500"></i> Create New Class
+        </h3>
+        <form action="{{ url_for('academic.classes') }}" method="POST" class="flex flex-col gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Department <span
+                        class="text-red-500">*</span></label>
+                <select name="dept_id" required
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                    <option value="">Select Dept</option>
+                    {% for d in departments %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                        class="text-red-500">*</span></label>
+                <select name="year_id" id="create_batch_id" required onchange="fetchBatchDetails(this.value, 'create')"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                    <option value="">Select Batch</option>
+                    {% for y in years %}
+                    <option value="{{ y.id }}">{{ y.name }}</option>
+                    {% endfor %}
+                </select>
+                <div id="create_current_year_ui" class="text-xs text-blue-400 mt-1 font-mono hidden">
+                    <i class="fas fa-info-circle"></i> Current Year: <span class="current_year_val font-bold"></span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Section</label>
+                <select name="section_id" id="create_section_id"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                    <option value="">Select Section</option>
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+
+            <button type="submit"
+                class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-green-900/20 transition-all hover:-translate-y-0.5 mt-2">
+                Create Class
+            </button>
+        </form>
+    </div>
+
+    <!-- Existing Classes Table -->
+    <div class="card p-0 overflow-hidden border-t-4 border-t-blue-500 lg:col-span-2">
+        <div class="p-6 border-b border-[#2d2d2d] bg-[#1a1a1a]">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-layer-group text-blue-500"></i> Existing Classes
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Class Name
+                        </th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Dept</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Batch</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Section</th>
+                        <th
+                            class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d] text-right w-24">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if classes %}
+                    {% for c in classes %}
+                    <tr class="hover:bg-white/5 transition-colors border-b border-[#2d2d2d] last:border-0">
+                        <td class="p-4 font-bold text-white">{{ c.name }}</td>
+                        <td class="p-4 text-gray-300">{{ c.dept_name }}</td>
+                        <td class="p-4 text-gray-300">{{ c.year_name }}</td>
+                        <td class="p-4 text-gray-300">{{ c.sec_name or '-' }}</td>
+                        <td class="p-4 flex justify-end space-x-2">
+                            <button data-id="{{ c.id }}" data-dept="{{ c.dept_id }}" data-year="{{ c.year_id }}"
+                                data-section="{{ c.section_id or '' }}" onclick="openEditModal(this)"
+                                class="w-8 h-8 rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 flex items-center justify-center transition-colors">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form action="{{ url_for('academic.delete_class', id=c.id) }}" method="POST"
+                                onsubmit="return confirm('Delete this class?');" class="inline">
+                                <button type="submit"
+                                    class="w-8 h-8 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 flex items-center justify-center transition-colors">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="p-8 text-center text-gray-500">No classes added yet.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div
+        class="bg-[#1a1a1a] p-6 rounded-2xl border border-[#2d2d2d] w-full max-w-lg shadow-2xl transform transition-all">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-edit text-blue-500"></i> Edit Class
+        </h3>
+        <form action="{{ url_for('academic.classes') }}" method="POST" class="flex flex-col gap-4">
+            <input type="hidden" name="class_id" id="edit_class_id">
+
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Department <span
+                        class="text-red-500">*</span></label>
+                <select name="dept_id" id="edit_dept_id" required
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                    <option value="">Select Dept</option>
+                    {% for d in departments %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                        class="text-red-500">*</span></label>
+                <select name="year_id" id="edit_year_id" required onchange="fetchBatchDetails(this.value, 'edit')"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                    <option value="">Select Batch</option>
+                    {% for y in years %}
+                    <option value="{{ y.id }}">{{ y.name }}</option>
+                    {% endfor %}
+                </select>
+                <div id="edit_current_year_ui" class="text-xs text-blue-400 mt-1 font-mono hidden">
+                    <i class="fas fa-info-circle"></i> Current Year: <span class="current_year_val font-bold"></span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Section</label>
+                <select name="section_id" id="edit_section_id"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                    <option value="">Select Section</option>
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+
+            <div class="flex gap-3 mt-2">
+                <button type="button" onclick="closeEditModal()"
+                    class="flex-1 px-4 py-3 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 rounded-lg transition-colors border border-[#333]">Cancel</button>
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5">Update
+                    Class</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function fetchBatchDetails(batchId, formType = 'create', selectedSectionId = null) {
+        const sectionSelect = document.getElementById(`${formType}_section_id`);
+        const yearUI = document.getElementById(`${formType}_current_year_ui`);
+        const yearVal = yearUI ? yearUI.querySelector('.current_year_val') : null;
+
+        // Reset
+        sectionSelect.innerHTML = '<option value="">Select Section</option>';
+        if (yearUI) yearUI.classList.add('hidden');
+
+        if (!batchId) return;
+
+        try {
+            const response = await fetch(`/admin/user-management/academic/api/batch/${batchId}/details`);
+            const data = await response.json();
+
+            if (data.sections) {
+                data.sections.forEach(sec => {
+                    const opt = document.createElement('option');
+                    opt.value = sec.id;
+                    opt.textContent = sec.name;
+                    if (selectedSectionId && selectedSectionId == sec.id) {
+                        opt.selected = true;
+                    }
+                    sectionSelect.appendChild(opt);
+                });
+            }
+
+            if (data.current_year_display && yearUI && yearVal) {
+                // Convert 1->I, 2->II etc.
+                const romans = ["I", "II", "III", "IV"];
+                const roman = data.current_year_display <= 4 ? romans[data.current_year_display - 1] : data.current_year_display;
+                yearVal.textContent = roman; // + " (" + data.current_year_display + ")";
+                yearUI.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Error fetching batch details:', error);
+        }
+    }
+
+    function openEditModal(btn) {
+        const d = btn.dataset;
+        document.getElementById('edit_class_id').value = d.id;
+        document.getElementById('edit_dept_id').value = d.dept;
+        document.getElementById('edit_year_id').value = d.year;
+
+        // Fetch sections and set selected
+        fetchBatchDetails(d.year, 'edit', d.section);
+
+        const modal = document.getElementById('editModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeEditModal() {
+        const modal = document.getElementById('editModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // Close on escape
+    document.addEventListener('keydown', function (event) {
+        if (event.key === "Escape") {
+            closeEditModal();
+        }
+    });
+</script>
+{% endblock %}

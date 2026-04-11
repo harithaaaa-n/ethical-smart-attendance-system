@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block header %}Assigned Students{% endblock %}
+{% block subheader %}View students in your classes{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 gap-6">
+
+    <!-- Filters -->
+    <div class="card p-6">
+        <form method="GET" action="{{ url_for('teacher_assigned_students') }}"
+            class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <!-- Department Filter -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Department</label>
+                <select name="department"
+                    class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="">Select Department</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}" {% if selected_dept==dept %}selected{% endif %}>{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Year Filter -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Year</label>
+                <select name="year"
+                    class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="">Select Year</option>
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if selected_year==y|string %}selected{% endif %}>Year {{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Search -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Search (Name/Roll No)</label>
+                <input type="text" name="search" value="{{ search_query }}" placeholder="Search..."
+                    class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+            </div>
+
+            <!-- Button -->
+            <div>
+                <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors">
+                    <i class="fas fa-filter mr-2"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Student List -->
+    {% if selected_dept and selected_year %}
+    <div class="card p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-white">
+                Students in {{ selected_dept }} - Year {{ selected_year }}
+            </h3>
+            <span class="text-sm text-gray-400">{{ students|length }} Student(s) Found</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="text-gray-400 text-sm border-b border-[#2d2d2d]">
+                        <th class="pb-3 font-medium">Roll Number</th>
+                        <th class="pb-3 font-medium">Full Name</th>
+                        <th class="pb-3 font-medium">Batch</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm">
+                    {% for student in students %}
+                    <tr class="border-b border-[#2d2d2d] last:border-0 hover:bg-white/5 transition-colors">
+                        <td class="py-4 font-mono text-gray-300">{{ student.roll_number or 'N/A' }}</td>
+                        <td class="py-4 font-bold text-white">{{ student.full_name }}</td>
+                        <td class="py-4 text-gray-400">{{ student.batch_year }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="py-8 text-center text-gray-500">
+                            No students found matching your criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif not selected_dept and not selected_year %}
+    <div class="text-center py-12 text-gray-500">
+        <i class="fas fa-users text-4xl mb-4"></i>
+        <p>Please select a Department and Year to view students.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block header %}Attendance Reports{% endblock %}
+{% block subheader %}Detailed attendance analytics for your subjects{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 gap-6">
+
+    <!-- Filters -->
+    <div class="card p-6">
+        <form method="GET" action="{{ url_for('teacher_reports') }}"
+            class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+
+            <!-- Subject Filter -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Subject</label>
+                <select name="subject"
+                    class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="">All Assigned Subjects</option>
+                    {% for sub in subjects %}
+                    <option value="{{ sub }}" {% if selected_subject|lower==sub|lower %}selected{% endif %}>{{ sub }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Department Filter -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Department</label>
+                <select name="department"
+                    class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}" {% if selected_dept|lower==dept|lower %}selected{% endif %}>{{ dept }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Batch Filter -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Batch</label>
+                <select name="batch_year" id="batch_year"
+                    class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="">All Batches</option>
+                    {% for batch in batches %}
+                    <option value="{{ batch.name }}" {% if request.args.get('batch_year')==batch.name %}selected{% endif
+                        %}>{{ batch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Period Filter -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Period</label>
+                <select name="period"
+                    class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="">All Periods</option>
+                    {% for p in range(1, 9) %}
+                    <option value="{{ p }}" {% if selected_period==p|string %}selected{% endif %}>Period {{ p }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- View Mode -->
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">View Mode</label>
+                <select name="view_mode" class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="Student Wise" {% if request.args.get('view_mode') == 'Student Wise' %}selected{% endif %}>Student Wise</option>
+                    <option value="Daily Summary" {% if request.args.get('view_mode') == 'Daily Summary' %}selected{% endif %}>Daily Summary</option>
+                </select>
+            </div>
+
+            <!-- Button -->
+            <div class="md:col-span-1">
+                <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors mt-2">
+                    <i class="fas fa-search mr-2"></i> View Report
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Report Data -->
+    {% if report_data %}
+    <div class="card p-6">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <h3 class="text-lg font-bold text-white">Attendance Summary</h3>
+
+            <!-- Export Button -->
+            <!-- Export Buttons -->
+            <div class="flex gap-2">
+                <a href="{{ url_for('teacher_reports_export', subject=selected_subject, department=selected_dept, year=selected_year, batch_year=selected_batch_year, format='csv', view_mode=request.args.get('view_mode', 'Student Wise')) }}"
+                    class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition-colors flex items-center">
+                    <i class="fas fa-file-csv mr-2"></i> CSV
+                </a>
+                <a href="{{ url_for('teacher_reports_export', subject=selected_subject, department=selected_dept, year=selected_year, batch_year=selected_batch_year, format='pdf', view_mode=request.args.get('view_mode', 'Student Wise')) }}"
+                    class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition-colors flex items-center">
+                    <i class="fas fa-file-pdf mr-2"></i> PDF
+                </a>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="text-gray-400 text-sm border-b border-[#2d2d2d]">
+                        {% if view_mode == 'Student Wise' %}
+                        <th class="pb-3 font-medium">Student Name</th>
+                        <th class="pb-3 font-medium">Register No</th>
+                        <th class="pb-3 font-medium text-center">Total Periods</th>
+                        <th class="pb-3 font-medium text-center">Present</th>
+                        <th class="pb-3 font-medium text-center">Attendance %</th>
+                        {% elif view_mode == 'Daily Summary' %}
+                        <th class="pb-3 font-medium">Date</th>
+                        <th class="pb-3 font-medium text-center">Total Periods</th>
+                        <th class="pb-3 font-medium text-center">Present</th>
+                        <th class="pb-3 font-medium text-center">Attendance %</th>
+                        {% else %}
+                        <th class="pb-3 font-medium">Date</th>
+                        <th class="pb-3 font-medium text-center">Period</th>
+                        <th class="pb-3 font-medium">Student Name</th>
+                        <th class="pb-3 font-medium">Subject</th>
+                        {% if view_mode == 'Raw Records' %}
+                        <th class="pb-3 font-medium text-center">Mode</th>
+                        {% endif %}
+                        <th class="pb-3 font-medium text-center">Status</th>
+                        {% if view_mode == 'Raw Records' %}
+                        <th class="pb-3 font-medium text-center">Proof</th>
+                        {% endif %}
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="text-sm">
+                    {% for row in report_data %}
+                    <tr class="border-b border-[#2d2d2d] last:border-0 hover:bg-white/5 transition-colors">
+                        {% if view_mode == 'Student Wise' %}
+                        <td class="py-4 font-bold text-white">{{ row.student }}</td>
+                        <td class="py-4 font-mono text-gray-300">{{ row.register_no }}</td>
+                        <td class="py-4 text-center text-gray-400">{{ row.total_classes }}</td>
+                        <td class="py-4 text-center text-green-400 font-bold">{{ row.present_count }}</td>
+                        <td class="py-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-bold 
+                                {% if row.attendance_pct < 75 %}bg-red-500/20 text-red-400 border border-red-500/30
+                                {% else %}bg-green-500/20 text-green-400 border border-green-500/30{% endif %}">
+                                {{ row.attendance_pct }}%
+                            </span>
+                        </td>
+                        {% elif view_mode == 'Daily Summary' %}
+                        <td class="py-4 font-bold text-white">{{ row.group_date.strftime('%d/%m/%Y') if row.group_date else '-' }}</td>
+                        <td class="py-4 text-center text-gray-400">{{ row.total_classes }}</td>
+                        <td class="py-4 text-center text-green-400 font-bold">{{ row.present_count }}</td>
+                        <td class="py-4 text-center font-bold text-purple-400">{{ row.attendance_pct }}%</td>
+                        {% else %}
+                        <td class="py-4 text-white">{{ row.timestamp.strftime('%d/%m/%Y') if row.timestamp else '-' }}</td>
+                        <td class="py-4 text-center text-gray-400">{{ row.period_no or '-' }}</td>
+                        <td class="py-4 font-bold text-white">{{ row.full_name }}</td>
+                        <td class="py-4 text-gray-300">{{ row.subject }}</td>
+                        {% if view_mode == 'Raw Records' %}
+                        <td class="py-4 text-center">
+                            <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase
+                                {% if row.method == 'manual' %}bg-amber-900/30 text-amber-400
+                                {% else %}bg-purple-900/30 text-purple-400{% endif %}">
+                                {{ row.method or 'System' }}
+                            </span>
+                        </td>
+                        {% endif %}
+                        <td class="py-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-bold
+                                {% if row.status == 'Present' %}bg-green-900/30 text-green-400
+                                {% elif row.status == 'OD' %}bg-blue-900/30 text-blue-400
+                                {% else %}bg-red-900/30 text-red-400{% endif %}">
+                                {{ row.status }}
+                            </span>
+                        </td>
+                        {% if view_mode == 'Raw Records' %}
+                        <td class="py-4 text-center">
+                            {% if row.proof_image_path %}
+                            <a href="{{ url_for('static', filename=row.proof_image_path) }}" target="_blank" class="text-blue-400 hover:text-blue-300">
+                                <i class="fas fa-image"></i>
+                            </a>
+                            {% else %}
+                            <span class="text-gray-600">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif request.args %}
+    <div class="text-center py-12 text-gray-500">
+        <i class="fas fa-chart-bar text-4xl mb-4"></i>
+        <p>No attendance records found for these filters.</p>
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-gray-500">
+        <i class="fas fa-filter text-4xl mb-4"></i>
+        <p>Apply filters to view attendance reports.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const batchInput = document.getElementById('batch_year');
+        const yearDisplay = document.getElementById('year_display');
+        const yearHidden = document.getElementById('year');
+
+        function updateYear() {
+            const batchValue = batchInput.value;
+            if (!batchValue) {
+                yearDisplay.value = '';
+                // yearHidden.value = ''; // keep existing? No, reset if batch cleared
+                return;
+            }
+
+            let startYear = 0;
+            if (batchValue.includes('-')) {
+                startYear = parseInt(batchValue.split('-')[0]);
+            } else if (batchValue.length === 4) {
+                startYear = parseInt(batchValue);
+            } else {
+                return;
+            }
+
+            if (isNaN(startYear)) return;
+
+            const today = new Date();
+            const currentMonth = today.getMonth() + 1;
+            const currentYear = today.getFullYear();
+
+            const effectiveAcademicYear = currentMonth >= 6 ? currentYear : currentYear - 1;
+            let year = effectiveAcademicYear - startYear + 1;
+
+            if (year < 1) year = 1;
+            if (year > 4) year = 4;
+
+            yearDisplay.value = `Year ${year}`;
+            yearHidden.value = year;
+        }
+
+        if (batchInput) {
+            batchInput.addEventListener('change', updateYear);
+            if (batchInput.value) updateYear();
+        }
+    });
+</script>
+{% endblock %}

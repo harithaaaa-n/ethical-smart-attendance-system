@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Admin Dashboard{% endblock %}
+{% block subheader %}Manage the entire attendance system and user accounts{% endblock %}
+
+{% block content %}
+<!-- Quick Actions -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <a href="{{ url_for('select_attendance_mode') }}"
+        class="bg-blue-600 hover:bg-blue-700 p-4 sm:p-6 rounded-xl shadow-lg hover:shadow-blue-900/20 transition-all flex items-center justify-center sm:justify-start gap-4 group">
+        <div class="bg-white/20 p-3 rounded-lg group-hover:scale-110 transition-transform">
+            <i class="fas fa-camera text-xl"></i>
+        </div>
+        <span class="font-semibold text-lg">Mark Attendance</span>
+    </a>
+    <a href="{{ url_for('admin_user_management', tab='students') }}"
+        class="bg-purple-600 hover:bg-purple-700 p-4 sm:p-6 rounded-xl shadow-lg hover:shadow-purple-900/20 transition-all flex items-center justify-center sm:justify-start gap-4 group">
+        <div class="bg-white/20 p-3 rounded-lg group-hover:scale-110 transition-transform">
+            <i class="fas fa-user-plus text-xl"></i>
+        </div>
+        <span class="font-semibold text-lg">Enroll Student</span>
+    </a>
+</div>
+
+<!-- Emergency Access Control -->
+<div class="mb-8">
+    <div class="card p-6 border border-red-900/30">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h3 class="text-xl font-bold text-red-500 mb-2">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Emergency Attendance Access
+                </h3>
+                <p class="text-gray-400 text-sm">Generate a temporary access code for substitute teachers or emergency
+                    situations.</p>
+            </div>
+            <button onclick="generateEmergencyCode()"
+                class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-red-900/20 transition-all font-semibold flex items-center gap-2">
+                <i class="fas fa-key"></i> Generate Code
+            </button>
+        </div>
+
+        <!-- Code Display Area (Hidden by default) -->
+        <div id="emergencyCodeResult" class="hidden mt-6 bg-red-900/10 border border-red-900/30 rounded-lg p-4">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="text-center sm:text-left">
+                    <p class="text-red-400 text-sm font-medium uppercase tracking-wider mb-1">Active Emergency Code</p>
+                    <div class="flex items-center gap-3">
+                        <code
+                            class="text-3xl font-mono font-bold text-white tracking-widest bg-red-900/20 px-4 py-2 rounded"
+                            id="codeDisplay">---</code>
+                        <button onclick="copyCode()" class="text-gray-400 hover:text-white transition-colors"
+                            title="Copy Code">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <p class="text-gray-500 text-xs mt-2">Expires in <span id="codeTimer">30:00</span></p>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-gray-500 block mb-1">Instructions for Substitute:</span>
+                    <ol class="text-sm text-gray-300 list-decimal list-inside text-left">
+                        <li>Go to Login Page</li>
+                        <li>Click "Emergency Access"</li>
+                        <li>Enter this code</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function generateEmergencyCode() {
+        try {
+            const response = await fetch('/admin/generate-emergency-code', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                document.getElementById('emergencyCodeResult').classList.remove('hidden');
+                document.getElementById('codeDisplay').textContent = data.code;
+
+                // formatting time
+                const expires = new Date(data.expires_at);
+                document.getElementById('codeTimer').textContent = "30 minutes"; // Simplified for demo
+            } else {
+                alert('Error generating code: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to generate code');
+        }
+    }
+
+    function copyCode() {
+        const code = document.getElementById('codeDisplay').textContent;
+        navigator.clipboard.writeText(code);
+        alert('Code copied to clipboard!');
+    }
+</script>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="card p-6 flex items-center justify-between hover:border-blue-500/50 transition-colors">
+        <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Total Students</p>
+            <h3 class="text-3xl font-bold">{{ total_students }}</h3>
+        </div>
+        <div class="bg-blue-900/30 p-3 rounded-lg text-blue-400">
+            <i class="fas fa-user-graduate text-2xl"></i>
+        </div>
+    </div>
+    <div class="card p-6 flex items-center justify-between hover:border-green-500/50 transition-colors">
+        <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Present Today</p>
+            <h3 class="text-3xl font-bold">{{ present_today }}</h3>
+        </div>
+        <div class="bg-green-900/30 p-3 rounded-lg text-green-400">
+            <i class="fas fa-check-circle text-2xl"></i>
+        </div>
+    </div>
+    <div class="card p-6 flex items-center justify-between hover:border-purple-500/50 transition-colors">
+        <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Total Teachers</p>
+            <h3 class="text-3xl font-bold">{{ total_teachers }}</h3>
+        </div>
+        <div class="bg-purple-900/30 p-3 rounded-lg text-purple-400">
+            <i class="fas fa-chalkboard-teacher text-2xl"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Metrics (Academic Setup) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="card p-6 flex flex-col justify-between hover:border-pink-500/50 transition-colors h-full">
+        <div class="flex justify-between items-start mb-2">
+            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider">Departments</p>
+            <div class="bg-pink-900/30 p-2 rounded-lg text-pink-400">
+                <i class="fas fa-university text-lg"></i>
+            </div>
+        </div>
+        <h3 class="text-3xl font-bold">{{ total_departments }}</h3>
+    </div>
+    <div class="card p-6 flex flex-col justify-between hover:border-yellow-500/50 transition-colors h-full">
+        <div class="flex justify-between items-start mb-2">
+            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider">Classes</p>
+            <div class="bg-yellow-900/30 p-2 rounded-lg text-yellow-400">
+                <i class="fas fa-layer-group text-lg"></i>
+            </div>
+        </div>
+        <h3 class="text-3xl font-bold">{{ total_classes }}</h3>
+    </div>
+    <div class="card p-6 flex flex-col justify-between hover:border-cyan-500/50 transition-colors h-full">
+        <div class="flex justify-between items-start mb-2">
+            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider">Batches</p>
+            <div class="bg-cyan-900/30 p-2 rounded-lg text-cyan-400">
+                <i class="fas fa-calendar-alt text-lg"></i>
+            </div>
+        </div>
+        <h3 class="text-3xl font-bold">{{ total_batches }}</h3>
+    </div>
+    <div class="card p-6 flex flex-col justify-between hover:border-orange-500/50 transition-colors h-full">
+        <div class="flex justify-between items-start mb-2">
+            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider">Semesters</p>
+            <div class="bg-orange-900/30 p-2 rounded-lg text-orange-400">
+                <i class="fas fa-book-open text-lg"></i>
+            </div>
+        </div>
+        <h3 class="text-3xl font-bold">{{ total_semesters }}</h3>
+    </div>
+</div>
+
+<!-- Analytics & Status -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Chart -->
+    <div class="card p-6">
+        <h2 class="text-lg font-bold mb-6 flex items-center gap-2">
+            <i class="fas fa-chart-bar text-blue-500"></i> Department Analytics
+        </h2>
+        <div class="h-64 relative w-full">
+            <canvas id="analyticsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- System Status -->
+    <div class="card p-6">
+        <h2 class="text-lg font-bold mb-6 flex items-center gap-2">
+            <i class="fas fa-server text-green-500"></i> System Status
+        </h2>
+        <div class="space-y-4">
+            <div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg border border-[#2d2d2d]">
+                <div class="flex items-center gap-3">
+                    <div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                    <span class="font-medium text-sm text-gray-300">Face Recognition API</span>
+                </div>
+                <span class="text-xs font-bold text-green-400 bg-green-900/20 px-2 py-1 rounded">ONLINE</span>
+            </div>
+            <div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg border border-[#2d2d2d]">
+                <div class="flex items-center gap-3">
+                    <div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                    <span class="font-medium text-sm text-gray-300">Database Server</span>
+                </div>
+                <span class="text-xs font-bold text-green-400 bg-green-900/20 px-2 py-1 rounded">ONLINE</span>
+            </div>
+            <div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg border border-[#2d2d2d]">
+                <div class="flex items-center gap-3">
+                    <div class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+                    <span class="font-medium text-sm text-gray-300">Attendance Logging</span>
+                </div>
+                <span class="text-xs font-bold text-blue-400 bg-blue-900/20 px-2 py-1 rounded">ACTIVE</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Users Table -->
+<div class="card overflow-hidden">
+    <div class="p-6 border-b border-[#2d2d2d] flex justify-between items-center bg-[#141414]">
+        <h2 class="text-lg font-bold">Recent Users</h2>
+        <a href="{{ url_for('admin_user_management') }}"
+            class="text-sm text-blue-400 hover:text-blue-300 transition-colors">View All</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="responsive-table w-full">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users[:5] %}
+                <tr>
+                    <td data-label="Name" class="font-medium text-white">{{ user.full_name }}</td>
+                    <td data-label="Username" class="text-gray-400">{{ user.username }}</td>
+                    <td data-label="Role">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold
+                                {% if user.role == 'admin' %}bg-purple-900/40 text-purple-300 border border-purple-800
+                                {% elif user.role == 'teacher' %}bg-blue-900/40 text-blue-300 border border-blue-800
+                                {% else %}bg-green-900/40 text-green-300 border border-green-800{% endif %}">
+                            {{ user.role|title }}
+                        </span>
+                    </td>
+                    <td data-label="Status">
+                        <span class="flex items-center gap-1.5 text-xs font-medium text-green-400">
+                            <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Active
+                        </span>
+                    </td>
+                    <td data-label="Actions">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('edit_user', user_id=user.id) }}"
+                                class="p-2 rounded bg-gray-800 text-blue-400 hover:bg-blue-900/30 transition-colors">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="analytics-data" type="application/json">{{ analytics_data.department_data | tojson | safe }}</script>
+<script>
+    const analyticsDataRaw = JSON.parse(document.getElementById('analytics-data').textContent);
+
+    // --- Chart Fix: Ensure context exists before creating ---
+    const ctx = document.getElementById('analyticsChart');
+    let analyticsChart = null;
+
+    function getThemeColors() {
+        const isLight = document.body.classList.contains('light-mode');
+        return {
+            grid: isLight ? '#e5e7eb' : '#2d2d2d',
+            text: isLight ? '#6b7280' : '#9ca3af'
+        };
+    }
+
+    function initAnalyticsChart() {
+        if (!ctx) return;
+
+        // Parse data from backend
+        const departmentData = analyticsDataRaw;
+
+        // Prepare Labels and Data
+        const labels = departmentData.map(item => item.department || 'Unknown');
+        const data = departmentData.map(item => {
+            const total = item.total_classes || 0;
+            const present = item.present_count || 0;
+            return total > 0 ? ((present / total) * 100).toFixed(1) : 0;
+        });
+
+        const colors = getThemeColors();
+
+        if (analyticsChart) {
+            analyticsChart.destroy();
+        }
+
+        analyticsChart = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Attendance %',
+                    data: data,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: colors.grid },
+                        ticks: { color: colors.text }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: colors.text }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return `Attendance: ${context.raw}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', initAnalyticsChart);
+    window.addEventListener('themeChanged', () => {
+        if (analyticsChart) {
+            const colors = getThemeColors();
+            analyticsChart.options.scales.y.grid.color = colors.grid;
+            analyticsChart.options.scales.y.ticks.color = colors.text;
+            analyticsChart.options.scales.x.ticks.color = colors.text;
+            analyticsChart.update();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block header %}My Subjects{% endblock %}
+{% block subheader %}Subjects assigned to you{% endblock %}
+
+{% block content %}
+<div class="card p-6">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="text-gray-400 text-sm border-b border-[#2d2d2d]">
+                    <th class="pb-3 font-medium">Subject Name</th>
+                </tr>
+            </thead>
+            <tbody class="text-sm">
+                {% for subject in subjects %}
+                <tr class="border-b border-[#2d2d2d] last:border-0 hover:bg-white/5 transition-colors">
+                    <td class="py-4 font-medium text-white">{{ subject }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="py-4 text-gray-500 text-center">No subjects assigned.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

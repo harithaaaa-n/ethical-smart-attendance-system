@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Student Dashboard{% endblock %}
+{% block subheader %}View your attendance, timetable, and academic information{% endblock %}
+
+{% block content %}
+<style>
+    .progress-circle {
+        position: relative;
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: conic-gradient(#3b82f6 0deg, #3b82f6 calc(var(--prog) * 3.6deg), #2d2d2d calc(var(--prog) * 3.6deg));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .progress-circle::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80px;
+        height: 80px;
+        background: var(--card-bg);
+        border-radius: 50%;
+    }
+
+    .progress-circle .value {
+        position: relative;
+        z-index: 1;
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--text-heading);
+    }
+
+    .timetable-grid {
+        display: grid;
+        grid-template-columns: 80px repeat(7, minmax(150px, 1fr));
+        gap: 1px;
+        background-color: var(--border-color, #2d2d2d);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .grid-header,
+    .grid-cell,
+    .grid-row-label {
+        background-color: var(--card-bg, #1a1a1a);
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 80px;
+    }
+
+    .grid-header {
+        background-color: var(--table-header-bg, #2d2d2d);
+        font-weight: bold;
+        color: var(--text-heading, #9ca3af);
+        min-height: 40px;
+        font-size: 0.8rem;
+    }
+
+    .grid-row-label {
+        background-color: var(--table-header-bg, #262626);
+        font-weight: bold;
+        color: var(--text-heading, #fff);
+        justify-content: center;
+        font-size: 0.8rem;
+    }
+
+    .subject-pill {
+        background-color: rgba(99, 102, 241, 0.2);
+        color: #a5b4fc;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        margin-bottom: 4px;
+        text-align: center;
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border: 1px solid rgba(99, 102, 241, 0.1);
+    }
+
+    .staff-label {
+        font-size: 0.70rem;
+        color: var(--text-muted, #6b7280);
+        text-align: center;
+    }
+</style>
+
+<div class="max-w-6xl mx-auto">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Profile Card -->
+        <div class="card p-6">
+            <h2 class="text-xl font-bold mb-4">Profile</h2>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between border-b border-gray-700 pb-2">
+                    <span class="text-gray-400">Name</span>
+                    <span class="font-medium text-white">{{ student.full_name }}</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-700 pb-2">
+                    <span class="text-gray-400">Roll Number</span>
+                    <span class="font-medium text-white">{{ student.roll_number }}</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-700 pb-2">
+                    <span class="text-gray-400">Department</span>
+                    <span class="font-medium text-white">{{ student.department }}</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-700 pb-2">
+                    <span class="text-gray-400">Batch</span>
+                    <span class="font-medium text-white">{{ student.batch_year }}</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-700 pb-2">
+                    <span class="text-gray-400">Semester</span>
+                    <span class="font-medium text-white">{{ student.semester }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Card -->
+        <div class="card p-6 flex flex-col items-center justify-center">
+            <h2 class="text-xl font-bold mb-4">Your Attendance %</h2>
+            {% if advanced_stats %}
+            <div class="progress-circle" style="--prog: {{ advanced_stats.percentage }}%;">
+                <span class="value">{{ advanced_stats.percentage }}%</span>
+            </div>
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-400">Present: {{ advanced_stats.present_count }} / Total: {{
+                    advanced_stats.total_possible }}</p>
+                <p class="text-xs text-gray-500 mt-1">BASED ON CLASSES CONDUCTED TO DATE</p>
+            </div>
+            {% else %}
+            <p class="text-gray-400">No attendance data available</p>
+            {% endif %}
+        </div>
+
+        <!-- Current Class Card -->
+        <div class="card p-6">
+            <h2 class="text-xl font-bold mb-4">Current Class</h2>
+            <div class="space-y-3">
+                {% if current_subject %}
+                <p><span class="text-gray-400">Subject:</span> <span class="text-blue-400 font-bold ml-1">{{
+                        current_subject }}</span></p>
+                <p><span class="text-gray-400">Status:</span> <span class="text-green-400 font-bold ml-1">In
+                        Progress</span></p>
+                {% if within_attendance_time %}
+                <p
+                    class="text-sm text-yellow-300 font-medium mt-2 bg-yellow-900/30 p-2 rounded border border-yellow-700/50">
+                    <i class="fas fa-clock mr-1"></i> Attendance can be marked now.
+                </p>
+                {% else %}
+                <p class="text-sm text-gray-400 mt-2 italic">Attendance marking is closed for this class.</p>
+                {% endif %}
+                {% else %}
+                <p class="text-gray-400 italic">No class is currently active.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Weekly Timetable -->
+    <div class="card p-6 mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">Weekly Timetable</h2>
+            {% if master %}
+            <span class="text-xs text-gray-500">{{ master.timetable_name }}</span>
+            {% endif %}
+        </div>
+
+        {% if timetable_data %}
+        <div class="w-full" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <div class="timetable-grid" style="min-width: 1200px; width: max-content;">
+                <!-- Header Row -->
+                <div class="grid-header">DAY</div>
+                {% for period in ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'] %}
+                <div class="grid-header">{{ period }}</div>
+                {% endfor %}
+
+                <!-- Days Rows -->
+                {% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] %}
+                {% for day_name in days %}
+                <div class="grid-row-label">{{ day_name[:3] }}</div>
+                {% for period_no in range(1, 8) %}
+                <!-- Find Entry -->
+                {% set ns = namespace(found=None) %}
+                {% for entry in timetable_data %}
+                {% if entry.day_of_week == day_name and entry.period_no == period_no %}
+                {% set ns.found = entry %}
+                {% endif %}
+                {% endfor %}
+
+                <div class="grid-cell">
+                    {% if ns.found %}
+                    <div class="subject-pill" title="{{ ns.found.subject }}">{{ ns.found.subject }}</div>
+                    <div class="staff-label">{{ ns.found.staff_name or '' }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-6 text-gray-500">
+            <p>No timetable published yet.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Attendance History -->
+    <div class="card p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">Recent Attendance</h2>
+            <a href="{{ url_for('student_history') }}"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors duration-200">
+                View All History
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="responsive-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Period</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if attendance %}
+                    {% for record in attendance[:5] %}
+                    <tr>
+                        <td class="p-4 border-b border-gray-700 text-gray-300">{{
+                            record.timestamp.strftime('%Y-%m-%d') if record.timestamp else '-' }}</td>
+                        <td class="p-4 border-b border-gray-700 text-gray-300">P{{ record.period_no or '-' }}</td>
+                        <td class="p-4 border-b border-gray-700 text-gray-300">{{ record.subject }}</td>
+                        <td class="p-4 border-b border-gray-700">
+                            {% if record.status == 'Absent' %}
+                            {% set g_status = grievance_map.get(record.id) %}
+                            {% if g_status %}
+                            <span
+                                class="px-2 py-1 rounded text-xs font-bold bg-yellow-600/20 text-yellow-400 border border-yellow-600/50">
+                                Grievance: {{ g_status }}
+                            </span>
+                            {% else %}
+                            <span
+                                class="px-2 py-1 rounded text-xs font-bold bg-red-600/20 text-red-400 border border-red-600/50 mr-2">
+                                Absent
+                            </span>
+                            <button data-id="{{ record.id }}" data-subject="{{ record.subject }}"
+                                data-date="{{ record.timestamp }}"
+                                onclick="openGrievanceModal(this.dataset.id, this.dataset.subject, this.dataset.date)"
+                                class="text-xs text-blue-400 hover:text-blue-300 underline">
+                                Raise Grievance
+                            </button>
+                            {% endif %}
+                            {% else %}
+                            <span class="px-2 py-1 rounded text-xs font-bold 
+                                    {% if record.status == 'Present' %}bg-green-600/20 text-green-400 border border-green-600/50
+                                    {% elif record.status == 'OD' %}bg-purple-600/20 text-purple-400 border border-purple-600/50
+                                    {% else %}bg-gray-600/20 text-gray-400 border border-gray-600/50{% endif %}">
+                                {{ record.status }}
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-gray-500">No attendance records found.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- Grievance Modal -->
+<div id="grievanceModal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 border border-gray-700">
+        <h3 class="text-lg font-bold text-white mb-4">Raise Attendance Grievance</h3>
+        <form id="grievanceForm" onsubmit="submitGrievance(event)">
+            <input type="hidden" id="g_attendance_id" name="attendance_id">
+
+            <div class="mb-4">
+                <p class="text-sm text-gray-400">Hubject: <span id="g_subject" class="text-white font-medium"></span>
+                </p>
+                <p class="text-sm text-gray-400">Date: <span id="g_date" class="text-white font-medium"></span></p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Reason for Grievance</label>
+                <textarea name="reason" rows="3" required placeholder="Explain why you were marked absent..."
+                    class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Optional Proof (Image/PDF)</label>
+                <input type="file" name="proof" accept="image/*,.pdf"
+                    class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeGrievanceModal()"
+                    class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white text-sm">Cancel</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm font-bold">Submit
+                    Grievance</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openGrievanceModal(id, subject, date) {
+        document.getElementById('g_attendance_id').value = id;
+        document.getElementById('g_subject').innerText = subject;
+        const d = new Date(date);
+        document.getElementById('g_date').innerText = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        document.getElementById('grievanceModal').classList.remove('hidden');
+    }
+
+    function closeGrievanceModal() {
+        document.getElementById('grievanceModal').classList.add('hidden');
+        document.getElementById('grievanceForm').reset();
+    }
+
+    async function submitGrievance(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const btn = form.querySelector('button[type="submit"]');
+
+        try {
+            btn.disabled = true;
+            btn.innerText = 'Submitting...';
+
+            const res = await fetch('/api/student/grievance/submit', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                alert('Grievance submitted successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to submit grievance.');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Submit Grievance';
+        }
+    }
+</script>
+
+{% endblock %}

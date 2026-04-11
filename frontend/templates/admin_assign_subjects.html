@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Subjects - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}User Management{% endblock %}
+{% block subheader %}Assign subjects to teachers{% endblock %}
+
+{% block content %}
+<!-- Back Navigation -->
+<div class="mb-6">
+    <a href="{{ url_for('admin_teachers') }}"
+        class="text-gray-400 hover:text-white flex items-center gap-2 transition-colors">
+        <i class="fas fa-arrow-left"></i> Back to Teachers
+    </a>
+</div>
+
+<!-- Header & Teacher Info -->
+<div class="mb-8">
+    <h1 class="text-2xl font-bold mb-2">Assign Subjects to <span class="text-blue-500">{{ teacher.full_name }}</span>
+    </h1>
+    <p class="text-gray-400">Manage academic responsibilities for this teacher.</p>
+</div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div
+    class="p-4 mb-6 rounded-lg {% if category == 'success' %}bg-green-900/50 text-green-200 border border-green-800{% else %}bg-red-900/50 text-red-200 border border-red-800{% endif %} flex items-center gap-2">
+    <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %}"></i>
+    {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Assign Form -->
+    <div class="card p-6 border-t-4 border-t-blue-500 h-fit lg:col-span-1">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-plus-circle text-blue-500"></i> New Assignment
+        </h3>
+        <form action="{{ url_for('assign_teacher_subject_route') }}" method="POST" class="flex flex-col gap-4">
+            <input type="hidden" name="teacher_id" value="{{ teacher.id }}">
+
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Department <span
+                        class="text-red-500">*</span></label>
+                <select name="department" required
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <option value="">Select Department</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Year <span
+                        class="text-red-500">*</span></label>
+                <select name="year" required
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <option value="">Select Year</option>
+                    {% for year in years %}
+                    <option value="{{ year }}">{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Subject <span
+                        class="text-red-500">*</span></label>
+                <select name="subject_id" required
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <option value="">Select Subject</option>
+                    {% for sub in subjects %}
+                    <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5 mt-2">
+                Assign Subject
+            </button>
+        </form>
+    </div>
+
+    <!-- Current Assignments -->
+    <div class="card p-0 overflow-hidden border-t-4 border-t-purple-500 lg:col-span-2">
+        <div class="p-6 border-b border-[#2d2d2d] bg-[#1a1a1a]">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-list-ul text-purple-500"></i> Current Assignments
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Department
+                        </th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Year</th>
+                        <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Subject</th>
+                        <th
+                            class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d] text-right w-24">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if assignments %}
+                    {% for assign in assignments %}
+                    <tr class="hover:bg-white/5 transition-colors border-b border-[#2d2d2d] last:border-0">
+                        <td class="p-4 text-gray-300">{{ assign.department }}</td>
+                        <td class="p-4 text-gray-300">{{ assign.year }}</td>
+                        <td class="p-4 font-medium text-white">
+                            {{ assign.subject_name }}
+                            <span class="ml-2 text-xs bg-[#2d2d2d] px-2 py-0.5 rounded text-gray-400 font-mono">{{
+                                assign.subject_code }}</span>
+                        </td>
+                        <td class="p-4 flex justify-end">
+                            <form action="{{ url_for('remove_teacher_assignment_route', assignment_id=assign.id) }}"
+                                method="POST" onsubmit="return confirm('Remove this assignment?');" class="inline">
+                                <input type="hidden" name="teacher_id" value="{{ teacher.id }}">
+                                <button type="submit"
+                                    class="w-8 h-8 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 flex items-center justify-center transition-colors">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-gray-500">No subjects assigned yet.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

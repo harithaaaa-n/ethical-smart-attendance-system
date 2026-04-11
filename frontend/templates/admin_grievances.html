@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Grievances - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Grievance Management{% endblock %}
+{% block subheader %}Review and resolve student attendance grievances{% endblock %}
+
+{% block content %}
+<div class="card p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold">Pending Grievances</h3>
+        <span class="text-xs text-gray-500 bg-[#2d2d2d] px-3 py-1 rounded-full">{{ grievances|length }} Pending</span>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="responsive-table w-full">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Date / Period</th>
+                    <th>Subject</th>
+                    <th>Reason</th>
+                    <th>Proof</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if grievances %}
+                {% for g in grievances %}
+                <tr class="border-b border-gray-700">
+                    <td data-label="Student">
+                        <div class="font-bold text-white">{{ g.student_name }}</div>
+                        <div class="text-xs text-gray-400">{{ g.roll_number }}</div>
+                        <div class="text-xs text-gray-500">{{ g.department }} - {{ g.year }} Year</div>
+                    </td>
+                    <td data-label="Date/Period">
+                        <div class="text-sm text-gray-300">{{ g.timestamp.strftime('%d/%m/%Y') }}</div>
+                        <div class="text-xs text-gray-500">Period {{ g.period_no }}</div>
+                    </td>
+                    <td data-label="Subject" class="text-gray-300">
+                        {{ g.subject }}
+                    </td>
+                    <td data-label="Reason" class="text-gray-300 max-w-xs truncate" title="{{ g.reason }}">
+                        {{ g.reason }}
+                    </td>
+                    <td data-label="Proof">
+                        {% if g.proof_path %}
+                        <a href="{{ url_for('serve_grievance_proof', filename=g.proof_path.split('/')[-1]) }}"
+                            target="_blank"
+                            class="text-blue-400 hover:text-blue-300 text-sm underline flex items-center gap-1">
+                            <i class="fas fa-paperclip"></i> View
+                        </a>
+                        {% else %}
+                        <span class="text-gray-500 text-xs">-</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Actions" class="text-right space-x-2">
+                        <button onclick="openResolveModal('{{ g.id }}', 'Approve')"
+                            class="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors">
+                            Approve (Present)
+                        </button>
+                        <button onclick="openResolveModal('{{ g.id }}', 'Approve_OD')"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors">
+                            Approve (OD)
+                        </button>
+                        <button onclick="openResolveModal('{{ g.id }}', 'Reject')"
+                            class="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors">
+                            Reject
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-gray-500">No pending grievances found.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Resolve Modal -->
+<div id="resolveModal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 border border-gray-700">
+        <h3 class="text-lg font-bold text-white mb-4">Resolve Grievance</h3>
+        <p class="text-sm text-gray-400 mb-4">Action: <span id="r_action_display" class="font-bold text-white"></span>
+        </p>
+
+        <form id="resolveForm" onsubmit="submitResolve(event)">
+            <input type="hidden" id="r_grievance_id" name="grievance_id">
+            <input type="hidden" id="r_action" name="action">
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Admin Comment (Optional)</label>
+                <textarea name="comment" rows="3" placeholder="Add a note..."
+                    class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeResolveModal()"
+                    class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white text-sm">Cancel</button>
+                <button type="submit" id="resolveSubmitBtn"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm font-bold">Confirm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openResolveModal(id, action) {
+        document.getElementById('r_grievance_id').value = id;
+        document.getElementById('r_action').value = action;
+
+        let displayAction = action;
+        if (action === 'Approve') displayAction = 'Approve (Mark Present)';
+        if (action === 'Approve_OD') displayAction = 'Approve (Mark On Duty)';
+
+        const displaySpan = document.getElementById('r_action_display');
+        displaySpan.innerText = displayAction;
+
+        // Color coding
+        displaySpan.className = 'font-bold ' +
+            (action.includes('Approve') ? 'text-green-400' : 'text-red-400');
+
+        const btn = document.getElementById('resolveSubmitBtn');
+        btn.className = 'px-4 py-2 rounded text-white text-sm font-bold ' +
+            (action.includes('Approve') ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500');
+
+        document.getElementById('resolveModal').classList.remove('hidden');
+    }
+
+    function closeResolveModal() {
+        document.getElementById('resolveModal').classList.add('hidden');
+        document.getElementById('resolveForm').reset();
+    }
+
+    async function submitResolve(e) {
+        e.preventDefault();
+        const form = e.target;
+        const grievanceId = document.getElementById('r_grievance_id').value;
+        const action = document.getElementById('r_action').value;
+        const comment = form.comment.value;
+        const btn = document.getElementById('resolveSubmitBtn');
+
+        try {
+            btn.disabled = true;
+            btn.innerText = 'Processing...';
+
+            const res = await fetch('/api/admin/grievance/resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ grievance_id: grievanceId, action: action, comment: comment })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                alert('Grievance updated successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to resolve grievance.');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Confirm';
+        }
+    }
+</script>
+{% endblock %}

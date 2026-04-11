@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - ADHIYAMAAN Attendance System</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f4ff',
+                            100: '#d9e2ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s ease;
+        }
+
+        .login-card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .input-field {
+            background-color: var(--input-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+        }
+
+        .login-btn-pulse {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+
+            70% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+    </style>
+    {% include 'includes/theme_config.html' %}
+</head>
+
+<body class="login-page">
+    <header class="border-b py-4 px-6 md:px-12 flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <div class="h-12 w-auto flex items-center justify-center overflow-hidden">
+                <img src="{{ url_for('static', filename='ace-logo-animated.gif') }}" alt="ACE Logo"
+                    class="h-full w-auto object-contain transition-all duration-500 hover:scale-110">
+            </div>
+            <div class="border-l border-gray-200 dark:border-white/10 pl-4">
+                <h1 class="text-heading font-display font-black text-xl tracking-tight leading-tight">ADHIYAMAAN COLLEGE
+                    OF ENGINEERING</h1>
+                <p class="text-[10px] text-muted font-bold tracking-[0.2em] uppercase">DEPARTMENT OF CSE (CYBERSECURITY)
+                </p>
+            </div>
+        </div>
+        <div class="scale-75">
+            {% include 'includes/theme_toggle_btn.html' %}
+        </div>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center py-12 px-6">
+        <div class="login-card w-full max-w-md rounded-2xl p-8 shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-user-lock text-2xl text-white"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-2">DEPARTMENT OF CSE (CYBERSECURITY)</h2>
+                <p class="text-secondary">Attendance System Login</p>
+            </div>
+
+            {% if error %}
+            <div class="bg-red-900 text-white p-4 rounded-lg mb-6 flex items-center">
+                <i class="fas fa-exclamation-circle mr-3"></i>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('login') }}" onsubmit="animateLoginButton()">
+                <div class="mb-6">
+                    <label for="username" class="block mb-2">Email or Username</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-user text-gray-500"></i>
+                        </div>
+                        <input type="text" id="username" name="username" placeholder="Enter your email or username"
+                            class="input-field w-full pl-10 pr-4 py-3 rounded-lg" required>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label for="password" class="block mb-2">Password</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-lock text-gray-500"></i>
+                        </div>
+                        <input type="password" id="password" name="password" placeholder="Enter your password"
+                            class="input-field w-full pl-10 pr-4 py-3 rounded-lg" required>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                            onclick="togglePasswordVisibility()">
+                            <i id="eye-icon" class="fas fa-eye text-gray-500"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end mb-6">
+                    <a href="#" class="text-sm text-blue-400 hover:text-blue-300">Forgot Password?</a>
+                </div>
+
+                <button type="submit" id="login-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                    Login <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <footer class="py-6 px-6 md:px-12 border-t text-center text-sm">
+        <p>© 2024 ADHIYAMAAN COLLEGE OF ENGINEERING - DEPARTMENT OF CSE (CYBERSECURITY). All rights reserved.</p>
+    </footer>
+
+    <script>
+        function togglePasswordVisibility() {
+            const passwordField = document.getElementById('password');
+            const eyeIcon = document.getElementById('eye-icon');
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordField.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        }
+
+        function animateLoginButton() {
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.classList.add('login-btn-pulse');
+        }
+    </script>
+</body>
+
+</html>

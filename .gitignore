@@ -1,0 +1,143 @@
+# ========================
+# 1. Environment & Secrets
+# ========================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/cert.pem
+backend/key.pem
+cert.pem
+key.pem
+
+# ========================
+# 2. Database & Application Data
+# ========================
+*.sqlite
+*.db
+attendance.db
+backend/*.sql
+backend/academic_timetable_data.sql
+backend/admins_data.sql
+backend/data.sql
+backend/db_seed.sql
+backend/full_db_dump.sql
+backend/full_dump.sql
+backend/full_schema_seed.sql
+backend/full_system_setup.sql
+backend/restore_users.sql
+backend/schema.sql
+backend/students_data.sql
+backend/teachers_data.sql
+
+# ========================
+# 3. Media & Generated Images
+# ========================
+backend/attendance_proofs/
+backend/class_photos/
+backend/student_faces/
+backend/data_dlib/
+backend/static/violations/
+uploads/
+temp/
+.cache/
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.zip
+*.rar
+
+# ========================
+# 4. Neural Network Weights
+# ========================
+*.pt
+yolov8n.pt
+backend/insightface_models/models/
+
+# ========================
+# 5. Language & Framework Specifics
+# ========================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Flutter / Dart
+flutter_application_1/.dart_tool/
+flutter_application_1/build/
+flutter_application_1/.pub-cache/
+flutter_application_1/.pub/
+flutter_application_1/*.iml
+flutter_application_1/*.log
+
+# Node & Build Outputs
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# ========================
+# 6. Development & Temporary/Log Files
+# ========================
+*.log
+server_log.txt
+debug_output.txt
+debug_log.txt
+all_tables.txt
+schema_details.txt
+steve_diag.txt
+test_output.txt
+verification_output.txt
+verify_output.txt
+verify_output.log
+backend/biometric_debug.log
+backend/missing_functions.txt
+backend/raw_users_dump.txt
+backend/users_list.txt
+backend/subject_entries_debug.txt
+backend/kanimozhi_monday_debug.txt
+backend/legacy_dept_debug.txt
+backend/diagnose_output.json
+backend/cols_debug.txt
+backend/append_db_filter.txt
+backend/.face_standardization_done
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ========================
+# 7. OS & Editor Configs
+# ========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.vsix

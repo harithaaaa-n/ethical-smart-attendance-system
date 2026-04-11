@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Timetables - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Timetable Management{% endblock %}
+{% block subheader %}Create and manage class timetables{% endblock %}
+
+{% block content %}
+<style>
+    .subject-pill {
+        background-color: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        text-align: center;
+        width: 100%;
+    }
+
+    .staff-label {
+        font-size: 0.75rem;
+        color: var(--text-muted, #9ca3af);
+        text-align: center;
+    }
+
+    /* Admin specific hover styles for table cells */
+    .responsive-table td.clickable-cell {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .responsive-table td.clickable-cell:hover {
+        background-color: var(--table-row-hover, rgba(59, 130, 246, 0.1)) !important;
+        transform: scale(1.02);
+        z-index: 10;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+</style>
+
+<div id="timetable-data" class="hidden" data-classes='{{ (academic_classes | default ([])) | tojson | safe }}'
+    data-teachers='{{ (teachers | default ([])) | tojson | safe }}'>
+</div>
+
+<div class="space-y-6">
+
+    <!-- Navigation Tabs -->
+    <div class="flex gap-4 border-b border-[#2d2d2d] pb-1 no-print">
+        <a href="{{ url_for('admin_timetable') }}"
+            class="px-4 py-2 text-blue-400 border-b-2 border-blue-500 font-medium">
+            Manage Timetables
+        </a>
+        <a href="{{ url_for('admin_timetable_config') }}"
+            class="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+            Global Timings
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card p-6 border-l-4 border-blue-500 no-print">
+        <form id="filterForm" method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <!-- Batch -->
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Batch</label>
+                <select name="batch_year" id="batch_year" required
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">Select Batch</option>
+                    {% for b in batches %}
+                    <option value="{{ b.name }}" data-start="{{ b.start_year }}" {% if selected_batch==b.name
+                        %}selected{% endif %}>{{ b.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Department -->
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Department</label>
+                <select name="department" id="department" required
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">Select Dept</option>
+                    {% for d in departments %}
+                    <option value="{{ d.name }}" {% if selected_dept==d.name %}selected{% endif %}>{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Semester -->
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Semester <span id="yearDisplay"
+                        class="text-blue-400 text-[10px] ml-1"></span></label>
+                <select name="semester" id="semester" required
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">Select Sem</option>
+                    {% for i in range(1, 9) %}
+                    <option value="{{ i }}" {% if selected_sem|int==i %}selected{% endif %}>Semester {{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Section -->
+            <div id="sectionContainer">
+                <label class="block text-xs font-medium text-gray-400 mb-1">Section</label>
+                <select name="section" id="section"
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">Select Section</option>
+                </select>
+            </div>
+
+            <button type="submit"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5">
+                Load Timetable
+            </button>
+        </form>
+    </div>
+
+    <!-- Interface -->
+    {% if selected_batch and selected_dept and selected_sem %}
+    {% if timetable_master %}
+    <!-- Timetable Grid -->
+    <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center gap-4">
+            <h3 class="text-xl font-bold text-white">{{ timetable_master.timetable_name }}</h3>
+            <button data-id="{{ timetable_master.id }}" onclick="deleteTimetable(this.dataset.id)"
+                class="text-red-500 hover:text-red-400 text-sm flex items-center gap-1 transition-colors"
+                title="Delete Timetable">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+        <span class="text-gray-400 text-sm italic">Click any cell to assign subject and staff</span>
+    </div>
+
+    <div class="card overflow-hidden">
+        <div class="overflow-x-auto p-4">
+            <table class="w-full border-collapse border border-gray-800/50">
+                <thead>
+                    <tr class="bg-gray-800/20">
+                        <th class="w-24 text-center p-3 border border-gray-800/50">Day</th>
+                        {% for p in timings %}
+                        <th class="text-center p-3 border border-gray-800/50">
+                            <div class="flex flex-col">
+                                <span>P{{ p.period_no }}</span>
+                                <span class="text-[10px] font-normal opacity-70">
+                                    {{ p.start_time.strftime('%I:%M %p') if p.start_time is defined and p.start_time is
+                                    not string else p.start_time }}
+                                </span>
+                            </div>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] %}
+                    {% for day in days %}
+                    <tr>
+                        <td class="font-bold text-center border border-gray-800/50 bg-gray-800/10">{{ day[:3] }}</td>
+                        {% for p in timings %}
+                        <!-- Find Entry -->
+                        {% set ns = namespace(found=None) %}
+                        {% for entry in current_entries %}
+                        {% if entry.day_of_week == day and entry.period_no == p.period_no %}
+                        {% set ns.found = entry %}
+                        {% endif %}
+                        {% endfor %}
+
+                        <td class="text-center p-3 align-middle clickable-cell border border-gray-800/30"
+                            data-day="{{ day }}" data-period="{{ p.period_no }}"
+                            data-subject="{{ ns.found.subject_id if ns.found else '' }}"
+                            data-staff="{{ ns.found.staff_id if ns.found else '' }}" onclick="openAssignModal(this)">
+                            {% if ns.found %}
+                            <div class="subject-pill">{{ ns.found.subject_name }}</div>
+                            <div class="staff-label">{{ ns.found.staff_name or 'No Staff' }}</div>
+                            {% else %}
+                            <div class="text-gray-700 text-xl font-thin">+</div>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <input type="hidden" id="masterId" value="{{ timetable_master.id }}">
+
+    {% else %}
+    <!-- Create Prompt -->
+    <div class="text-center py-12 bg-[#1a1a1a] rounded-lg border border-[#2d2d2d] border-dashed">
+        <i class="fas fa-calendar-plus text-4xl text-gray-600 mb-4"></i>
+        <h3 class="text-xl font-bold text-white mb-2">No Timetable Found</h3>
+        <p class="text-gray-400 mb-6">Create a new timetable for {{ selected_dept }} - {{ selected_batch }} (S{{
+            selected_sem }}{% if selected_sec %} - {{ selected_sec }}{% endif %})</p>
+
+        <div class="max-w-md mx-auto">
+            <input type="text" id="newTimetableName" placeholder="Enter Timetable Name (e.g., CSE Sem 4 A)"
+                value="{{ selected_dept }} {{ selected_batch }} S{{ selected_sem }}{% if selected_sec %} Sec {{ selected_sec }}{% endif %}"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-3 text-white mb-4 outline-none focus:border-blue-500 text-center">
+            <button onclick="createTimetable()"
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                Create Timetable
+            </button>
+        </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <!-- Select Filter Prompt -->
+    <div class="text-center py-20 text-gray-500">
+        <i class="fas fa-filter text-5xl mb-4 opacity-50"></i>
+        <p>Select Batch, Department, and Semester to manage timetables.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Assignment Modal -->
+<div id="assignModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm"
+    onclick="closeModal(event)">
+    <div class="bg-[#1a1a1a] w-full max-w-md rounded-xl border border-[#2d2d2d] shadow-2xl p-6 transform transition-all scale-100"
+        onclick="event.stopPropagation()">
+        <h3 class="text-xl font-bold text-white mb-1">Assign Subject & Staff</h3>
+        <p class="text-sm text-gray-400 mb-6"><span id="modalDay" class="text-blue-400"></span> - Period <span
+                id="modalPeriod"></span></p>
+
+        <input type="hidden" id="modalDayVal">
+        <input type="hidden" id="modalPeriodVal">
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Subject</label>
+                <select id="modalSubject"
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-3 text-white focus:border-blue-500 outline-none">
+                    <option value="">-- Clear / Free Period --</option>
+                    {% for sub in subjects %}
+                    <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Staff</label>
+                <select id="modalStaff"
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-3 text-white focus:border-blue-500 outline-none">
+                    <option value="">-- Select Staff --</option>
+                    {% for t in teachers %}
+                    <option value="{{ t.id }}">{{ t.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-8">
+            <button onclick="closeModal()"
+                class="flex-1 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 py-2.5 rounded-lg transition-colors">Cancel</button>
+            <button onclick="saveEntry()"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow-lg shadow-blue-900/20">Save</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Data from backend (Safe parsing from data attributes to avoid IDE errors)
+    const dataContainer = document.getElementById('timetable-data').dataset;
+    const academicClasses = JSON.parse(dataContainer.classes || "[]");
+    const allTeachers = JSON.parse(dataContainer.teachers || "[]");
+    const selectedSectionFromURL = "{{ selected_sec }}";
+
+    const batchInput = document.getElementById('batch_year');
+    const deptInput = document.getElementById('department');
+    const yearDisplay = document.getElementById('yearDisplay');
+
+    function updateYearCalc() {
+        if (!batchInput) return;
+        const selectedOption = batchInput.options[batchInput.selectedIndex];
+        if (!selectedOption || !selectedOption.dataset.start) {
+            if (yearDisplay) yearDisplay.innerText = "";
+            return;
+        }
+
+        const startYear = parseInt(selectedOption.dataset.start);
+        if (isNaN(startYear)) return;
+
+        const today = new Date();
+        const currentMonth = today.getMonth() + 1;
+        const currentYear = today.getFullYear();
+
+        // Academic year starts roughly July.
+        // In Jan 2026: 2025-2026 academic year.
+        // Batch start 2024.
+        // Diff = 2025 - 2024 = 1. Year 2.
+        const effectiveAcademicYearStart = currentMonth >= 6 ? currentYear : currentYear - 1;
+        let year = effectiveAcademicYearStart - startYear + 1;
+
+        if (year < 1) year = 1;
+        if (year > 4) year = 4;
+
+        if (yearDisplay) yearDisplay.innerText = `(Year ${year})`;
+
+        // Filter Semester Dropdown Options based on year? 
+        // User Requirement: "Semester dropdown values must depend on detected year"
+        // Year 1 -> 1,2; Year 2 -> 3,4...
+        filterSemesters(year);
+    }
+
+    function filterSemesters(year) {
+        const semSelect = document.getElementById('semester');
+        if (!semSelect) return;
+
+        const allowed = [];
+        if (year == 1) allowed.push(1, 2);
+        else if (year == 2) allowed.push(3, 4);
+        else if (year == 3) allowed.push(5, 6);
+        else if (year == 4) allowed.push(7, 8);
+
+        // Loop options and show/hide
+        let firstVisible = null;
+        for (let i = 0; i < semSelect.options.length; i++) {
+            const opt = semSelect.options[i];
+            if (!opt.value) continue; // skip placeholder
+            const sem = parseInt(opt.value);
+            if (allowed.includes(sem)) {
+                opt.hidden = false;
+                opt.disabled = false;
+                if (!firstVisible) firstVisible = opt.value;
+            } else {
+                opt.hidden = true;
+                opt.disabled = true;
+            }
+        }
+
+        // Auto-select first valid sem if current is invalid
+        if (firstVisible && (!semSelect.value || !allowed.includes(parseInt(semSelect.value)))) {
+            semSelect.value = firstVisible;
+        }
+    }
+
+    function filterSections() {
+        const secSelect = document.getElementById('section');
+        const secContainer = document.getElementById('sectionContainer');
+        if (!secSelect || !secContainer) return;
+
+        const batchName = batchInput.value;
+        const deptName = deptInput ? deptInput.value : "";
+
+        // Filter classes that match current batch and department
+        const matches = academicClasses.filter(c => c.year_name === batchName && c.dept_name === deptName);
+
+        // Extract unique section names
+        const sections = [...new Set(matches.map(c => c.sec_name))].filter(Boolean).sort();
+
+        // Clear and rebuild dropdown
+        secSelect.innerHTML = "";
+
+        // Always show the container
+        secContainer.classList.remove('hidden');
+
+        if (sections.length === 0) {
+            // No sections defined for this class -> Show "None"
+            const opt = document.createElement('option');
+            opt.value = "";
+            opt.innerText = "None";
+            opt.selected = true; // Auto-select None
+            secSelect.appendChild(opt);
+
+            // If it's "None", it's effectively selected, but let's make it not satisfy 'required' if we want them to explicitly select? 
+            // No, the user said "there should be the drop down of none option".
+            secSelect.required = false;
+        } else {
+            // Sections exist
+            const placeholder = document.createElement('option');
+            placeholder.value = "";
+            placeholder.innerText = "Select Section";
+            secSelect.appendChild(placeholder);
+
+            sections.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.innerText = "Section " + s;
+                if (s === selectedSectionFromURL) opt.selected = true;
+                secSelect.appendChild(opt);
+            });
+
+            secSelect.required = true;
+        }
+    }
+
+    if (batchInput) {
+        batchInput.addEventListener('change', () => {
+            updateYearCalc();
+            filterSections();
+        });
+    }
+    if (deptInput) {
+        deptInput.addEventListener('change', filterSections);
+    }
+
+    // Initial run
+    updateYearCalc();
+    filterSections();
+
+    // --- TIMETABLE LOGIC ---
+
+    function createTimetable() {
+        const name = document.getElementById('newTimetableName').value;
+        const batch = document.getElementById('batch_year').value;
+        // ... get other values from form since they are selected ...
+        // Query params might be cleaner but let's grab from inputs if present
+        // Actually, the form state is already submitted (GET), so values are in inputs
+        // or in URL params. 
+
+        const urlParams = new URLSearchParams(window.location.search);
+
+        fetch("{{ url_for('api_create_timetable_master') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                batch_year: urlParams.get('batch_year'),
+                department: urlParams.get('department'),
+                semester: urlParams.get('semester'),
+                section: urlParams.get('section'),
+                timetable_name: name
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload to see grid
+                    window.location.reload();
+                } else {
+                    alert("Error creating timetable: " + data.message);
+                }
+            });
+    }
+
+    // Modal Logic
+    const modal = document.getElementById('assignModal');
+    const modalDay = document.getElementById('modalDay');
+    const modalPeriod = document.getElementById('modalPeriod');
+    const modalDayVal = document.getElementById('modalDayVal');
+    const modalPeriodVal = document.getElementById('modalPeriodVal');
+    const modalSubject = document.getElementById('modalSubject');
+    const modalStaff = document.getElementById('modalStaff');
+
+    function filterTeachersBySubject(subId, selectedStaffId = "") {
+        if (!subId) {
+            // If no subject selected, show all staff as fallback or clear
+            modalStaff.innerHTML = '<option value="">-- Select Staff --</option>';
+            allTeachers.forEach(t => {
+                modalStaff.innerHTML += `<option value="${t.id}">${t.full_name}</option>`;
+            });
+            modalStaff.value = selectedStaffId;
+            return;
+        }
+
+        // Gather Filters
+        const deptVal = document.getElementById('department') ? document.getElementById('department').value : '';
+        const semVal = document.getElementById('semester') ? document.getElementById('semester').value : '';
+        let yearVal = '';
+
+        if (semVal) {
+            // Derive Year (1-4) from Semester (1-8)
+            yearVal = Math.ceil(parseInt(semVal) / 2);
+        }
+
+        // Construct URL with query params
+        const url = `/api/timetable/teachers_by_subject/${subId}?department=${encodeURIComponent(deptVal)}&year=${yearVal}`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    modalStaff.innerHTML = '';
+
+                    if (data.teachers.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = "";
+                        opt.innerText = "No eligible staff assigned for this subject";
+                        opt.disabled = true;
+                        opt.selected = true;
+                        modalStaff.appendChild(opt);
+
+                        // Disable save if strictly enforced? 
+                        // User requirement: "Disable Save button" if no eligible staff?
+                        // Actually, user said: "If no assignment exists: Show exactly 'No eligible staff...'; Disable Save button"
+                        // But Save button is shared. If staff is invalid (empty), HTML 'required' or backend validation catches it.
+                        // Ideally disable the save button here or handled by validation.
+                    } else {
+                        const defaultOpt = document.createElement('option');
+                        defaultOpt.value = "";
+                        defaultOpt.innerText = "-- Select Staff --";
+                        modalStaff.appendChild(defaultOpt);
+
+                        data.teachers.forEach(t => {
+                            const opt = document.createElement('option');
+                            opt.value = t.id;
+                            // Show department if available for clarity
+                            opt.innerText = t.full_name + (t.department ? ` (${t.department})` : "");
+                            if (String(t.id) === String(selectedStaffId)) opt.selected = true;
+                            modalStaff.appendChild(opt);
+                        });
+                    }
+
+                    // If the previously selected staff is NOT in the new list, logic above handles it (becomes unselected or empty)
+                    if (selectedStaffId && data.teachers.some(t => String(t.id) === String(selectedStaffId))) {
+                        modalStaff.value = selectedStaffId;
+                    }
+                }
+            });
+    }
+
+    modalSubject.addEventListener('change', () => {
+        filterTeachersBySubject(modalSubject.value);
+    });
+
+    function openAssignModal(element) {
+        const day = element.dataset.day;
+        const period = element.dataset.period;
+        const subId = element.dataset.subject;
+        const staffId = element.dataset.staff;
+
+        modalDay.innerText = day;
+        modalPeriod.innerText = period;
+        modalDayVal.value = day;
+        modalPeriodVal.value = period;
+
+        modalSubject.value = subId || "";
+
+        // Initial filter based on existing subId
+        filterTeachersBySubject(subId, staffId);
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeModal(e) {
+        if (e && e.target !== modal && !e.target.innerText.includes('Cancel')) return; // Check if click outside
+        modal.classList.add('hidden');
+    }
+
+    function saveEntry() {
+        const masterId = document.getElementById('masterId').value;
+        fetch("{{ url_for('api_save_timetable_entry') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                master_id: masterId,
+                day: modalDayVal.value,
+                period_no: modalPeriodVal.value,
+                subject_id: modalSubject.value,
+                staff_id: modalStaff.value
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Simple reload to reflect changes
+                } else {
+                    alert("Error saving: " + data.message);
+                }
+            });
+    }
+
+    function deleteTimetable(masterId) {
+        if (!confirm("Are you sure you want to delete this timetable? This action cannot be undone.")) {
+            return;
+        }
+
+        fetch(`/api/timetable/delete/${masterId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Timetable deleted successfully.");
+                    window.location.reload();
+                } else {
+                    alert("Error deleting timetable: " + data.message);
+                }
+            })
+            .catch(err => alert("Error: " + err));
+    }
+</script>
+{% endblock %}

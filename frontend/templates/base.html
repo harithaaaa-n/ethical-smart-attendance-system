@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ADHIYAMAAN Attendance System{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.5/cdn.min.js" defer></script>
+
+    <style>
+        /* Loader Styles */
+        #loader-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color, #ffffff);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .loader-logo {
+            width: 80px;
+            height: 80px;
+            animation: pulse-ring 2s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 20px rgba(59, 130, 246, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+
+        /* Global & Theme */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Sidebar & Nav */
+        .sidebar {
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .nav-item {
+            transition: all 0.2s ease;
+            color: var(--text-primary);
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.1);
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            border-left: 3px solid #3b82f6;
+            /* blue-500 */
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow);
+        }
+
+        /* Responsive Tables (Card View on Mobile) */
+        @media (max-width: 768px) {
+            .responsive-table thead {
+                display: none;
+            }
+
+            .responsive-table tbody tr {
+                display: block;
+                margin-bottom: 1rem;
+                background: var(--card-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 0.75rem;
+                padding: 1rem;
+            }
+
+            .responsive-table tbody td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.75rem 0;
+                border-bottom: 1px solid var(--border-color);
+                text-align: right;
+            }
+
+            .responsive-table tbody td:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+
+            .responsive-table tbody td:first-child {
+                padding-top: 0;
+            }
+
+            .responsive-table tbody td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #9ca3af;
+                /* gray-400 */
+                text-align: left;
+                margin-right: 1rem;
+                font-size: 0.85rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            /* Special handling for actions column */
+            .responsive-table tbody td[data-label="Actions"] {
+                justify-content: flex-end;
+                margin-top: 0.5rem;
+                padding-top: 1rem;
+                border-top: 1px dashed #333;
+            }
+        }
+
+        /* Desktop Table Styles */
+        @media (min-width: 769px) {
+            .responsive-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+
+            .responsive-table th,
+            .responsive-table td {
+                padding: 1rem;
+                text-align: left;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .responsive-table th {
+                background: var(--table-header-bg);
+                font-weight: 600;
+                color: var(--text-heading);
+                position: sticky;
+                top: 0;
+            }
+
+            .responsive-table tr:hover td {
+                background: var(--table-row-hover);
+            }
+        }
+
+        /* Scrollbar */
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track, #0f0f0f);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb, #2d2d2d);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover, #4b5563);
+        }
+    </style>
+    {% include 'includes/theme_config.html' %}
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="light-mode" x-data="{ sidebarOpen: false }">
+
+    <!-- Loader -->
+    <div id="loader-wrapper">
+        <img src="{{ url_for('static', filename='logo.png') }}" class="loader-logo rounded-full" alt="Loading...">
+    </div>
+
+    <!-- Mobile Header -->
+    <header class="md:hidden flex items-center justify-between p-4 border-b sticky top-0 z-40">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 p-2 rounded-lg">
+                <i class="fas fa-fingerprint text-white text-sm"></i>
+            </div>
+            <span class="font-bold text-lg tracking-tight">ADHIYAMAAN</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="scale-75 origin-right">
+                {% include 'includes/theme_toggle_btn.html' %}
+            </div>
+            <button @click="sidebarOpen = !sidebarOpen" class="text-gray-300 hover:text-white focus:outline-none p-2">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Overlay -->
+    <div x-show="sidebarOpen" @click="sidebarOpen = false"
+        x-transition:enter="transition-opacity ease-linear duration-300" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-linear duration-300"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+        class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" style="display: none;"></div>
+
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- Sidebar -->
+        <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+            class="sidebar fixed inset-y-0 left-0 z-50 w-64 border-r transform md:relative md:translate-x-0 flex flex-col h-full">
+
+            <!-- Logo Desktop -->
+            <div class="p-6 border-b hidden md:block">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-900/20">
+                        <i class="fas fa-fingerprint text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-lg tracking-tight">ADHIYAMAAN</h2>
+                        <p class="text-xs text-gray-400 font-medium">
+                            CSE (CYBERSECURITY)
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nav Links -->
+            <nav class="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+                {% if session.role == 'admin' %}
+                <a href="{{ url_for('admin_dashboard') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                    <i class="fas fa-home w-5 text-center"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('select_attendance_mode', manual_entry='true') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'select_attendance_mode' %}active{% endif %}">
+                    <i class="fas fa-camera w-5 text-center"></i>
+                    <span>Mark Attendance</span>
+                </a>
+                <a href="{{ url_for('admin_attendance_report') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'admin_attendance_report' %}active{% endif %}">
+                    <i class="fas fa-file-alt w-5 text-center"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="{{ url_for('admin_grievances') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'admin_grievances' %}active{% endif %}">
+                    <i class="fas fa-exclamation-circle w-5 text-center"></i>
+                    <span>Grievances</span>
+                </a>
+                <a href="{{ url_for('admin_analytics') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'admin_analytics' %}active{% endif %}">
+                    <i class="fas fa-chart-line w-5 text-center"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="{{ url_for('academic.departments') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if 'academic.' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-university w-5 text-center"></i>
+                    <span>Academic Setup</span>
+                </a>
+                <a href="{{ url_for('admin_user_management') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if 'user_management' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-users w-5 text-center"></i>
+                    <span>User Management</span>
+                </a>
+                <a href="{{ url_for('admin_timetable') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'admin_timetable' %}active{% endif %}">
+                    <i class="fas fa-clock w-5 text-center"></i>
+                    <span>Timetable</span>
+                </a>
+                <a href="{{ url_for('admin_semester_info') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'admin_semester_info' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt w-5 text-center"></i>
+                    <span>Semester Information</span>
+                </a>
+                {% elif session.role == 'teacher' %}
+                {% if not session.is_emergency_mode %}
+                <a href="{{ url_for('teacher_dashboard') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'teacher_dashboard' %}active{% endif %}">
+                    <i class="fas fa-home w-5 text-center"></i>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('select_attendance_mode', manual_entry='true') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'select_attendance_mode' %}active{% endif %}">
+                    <i class="fas fa-camera w-5 text-center"></i>
+                    <span>Mark Attendance</span>
+                </a>
+                {% if not session.is_emergency_mode %}
+                <a href="{{ url_for('teacher_timetable') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'teacher_timetable' %}active{% endif %}">
+                    <i class="fas fa-clock w-5 text-center text-yellow-400"></i>
+                    <span>My Timetable</span>
+                </a>
+                {% endif %}
+                {% elif session.role == 'student' %}
+                <a href="{{ url_for('student_dashboard') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'student_dashboard' %}active{% endif %}">
+                    <i class="fas fa-home w-5 text-center"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('student_history') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'student_history' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt w-5 text-center"></i>
+                    <span>Attendance History</span>
+                </a>
+                <a href="{{ url_for('student_timetable') }}"
+                    class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium {% if request.endpoint == 'student_timetable' %}active{% endif %}">
+                    <i class="fas fa-list-alt w-5 text-center"></i>
+                    <span>Timetable</span>
+                </a>
+                {% endif %}
+            </nav>
+
+            <!-- Bottom Actions -->
+            <div class="p-4 border-t space-y-2">
+
+                <!-- Settings Link (Role Adaptive) -->
+                {% if session.role and not session.is_emergency_mode %}
+                <a href="{% if session.role == 'admin' %}{{ url_for('admin_settings') }}{% elif session.role == 'teacher' %}{{ url_for('teacher_settings') }}{% else %}{{ url_for('student_settings') }}{% endif %}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                    <i class="fas fa-cog w-5 text-center"></i>
+                    <span>Settings</span>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors">
+                    <i class="fas fa-sign-out-alt w-5 text-center"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto relative w-full">
+            <!-- Desktop Header -->
+            <header class="hidden md:flex items-center justify-between p-6 pb-2">
+                <div>
+                    <h1 class="text-2xl font-bold">{% block header %}Dashboard{% endblock %}</h1>
+                    <p class="text-sm text-gray-400 mt-1">{% block subheader %}Welcome back{% endblock %}</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="scale-75">
+                        {% include 'includes/theme_toggle_btn.html' %}
+                    </div>
+                    <div class="text-right hidden lg:block">
+                        <p class="text-sm font-medium">{{ session.get('full_name', 'User') }}</p>
+                        <p class="text-xs text-blue-400 capitalize">{{ session.role }}</p>
+                    </div>
+                    <div
+                        class="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold shadow-lg">
+                        {{ (session.get('full_name') or 'User')[:1] }}
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Wrapper -->
+            <div class="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="mb-6 space-y-2">
+                    {% for category, message in messages %}
+                    <div
+                        class="p-4 rounded-lg flex items-center gap-3 {% if category == 'error' %}bg-red-100 text-black font-bold border border-red-400{% else %}bg-green-100 text-black font-bold border border-green-400{% endif %}">
+                        <i
+                            class="fas {% if category == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Loader Logic
+        window.addEventListener('load', function () {
+            const loader = document.getElementById('loader-wrapper');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 500);
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

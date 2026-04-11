@@ -1,0 +1,782 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Report - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Attendance Report{% endblock %}
+{% block subheader %}Detailed attendance logs and analytics{% endblock %}
+
+{% block content %}
+<style>
+    /* Print Styles */
+    @media print {
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        body {
+            background-color: white !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .no-print,
+        header,
+        aside,
+        .sidebar,
+        #imageModal,
+        .hidden-print {
+            display: none !important;
+        }
+
+        main {
+            padding: 0 !important;
+            background: white !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }
+
+        .container,
+        .card,
+        .p-6,
+        .p-4 {
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            max-width: none !important;
+        }
+
+        .card {
+            background: transparent !important;
+        }
+
+        table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 10pt !important;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd !important;
+            padding: 4px 8px !important;
+            color: black !important;
+        }
+
+        th {
+            background-color: #f3f4f6 !important;
+            font-weight: bold !important;
+        }
+
+        .overflow-x-auto {
+            overflow: visible !important;
+        }
+
+        /* Hide URL on print */
+        a[href]:after {
+            content: none !important;
+        }
+    }
+</style>
+
+<!-- Filter Form -->
+<div class="card p-6 mb-6 no-print border-l-4 border-l-purple-500">
+    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <i class="fas fa-filter text-purple-400"></i> Filter Report
+    </h3>
+    <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+        <div class="lg:col-span-1">
+            <label for="start_date" class="block text-xs font-medium text-gray-400 mb-1">From</label>
+            <input type="text" id="start_date" name="start_date" value="{{ start_date or '' }}"
+                placeholder="dd/mm/yyyy"
+                class="datepicker-input w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-purple-500 outline-none">
+        </div>
+        <div class="lg:col-span-1">
+            <label for="end_date" class="block text-xs font-medium text-gray-400 mb-1">To</label>
+            <input type="text" id="end_date" name="end_date" value="{{ end_date or '' }}"
+                placeholder="dd/mm/yyyy"
+                class="datepicker-input w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-purple-500 outline-none">
+        </div>
+        <div class="lg:col-span-1">
+            <label for="department" class="block text-xs font-medium text-gray-400 mb-1">Department</label>
+            <select id="department" name="department"
+                class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                <option value="All">All</option>
+                {% for dept in departments %}
+                <option value="{{ dept.name }}" {% if selected_department==dept.name %}selected{% endif %}>{{ dept.name
+                    }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="lg:col-span-1">
+            <label class="block text-xs font-medium text-gray-400 mb-1">Batch</label>
+            <select name="batch_year"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">All Batches</option>
+                {% for batch in batches %}
+                <option value="{{ batch.name }}" data-start-year="{{ batch.start_year }}" {% if batch_year==batch.name
+                    %}selected{% endif %}>
+                    {{ batch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="lg:col-span-1">
+            <label class="block text-xs font-medium text-gray-400 mb-1">Year</label>
+            <select name="year"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="All">All Years</option>
+                <option value="1" {% if selected_year=='1' %}selected{% endif %}>Year 1</option>
+                <option value="2" {% if selected_year=='2' %}selected{% endif %}>Year 2</option>
+                <option value="3" {% if selected_year=='3' %}selected{% endif %}>Year 3</option>
+                <option value="4" {% if selected_year=='4' %}selected{% endif %}>Year 4</option>
+            </select>
+        </div>
+
+        <div class="lg:col-span-1">
+            <label class="block text-xs font-medium text-gray-400 mb-1">Semester</label>
+            <select name="semester" onchange="autoSelectYear()"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="All">All Semesters</option>
+                <option value="1" {% if selected_semester=='1' %}selected{% endif %}>Sem 1</option>
+                <option value="2" {% if selected_semester=='2' %}selected{% endif %}>Sem 2</option>
+                <option value="3" {% if selected_semester=='3' %}selected{% endif %}>Sem 3</option>
+                <option value="4" {% if selected_semester=='4' %}selected{% endif %}>Sem 4</option>
+                <option value="5" {% if selected_semester=='5' %}selected{% endif %}>Sem 5</option>
+                <option value="6" {% if selected_semester=='6' %}selected{% endif %}>Sem 6</option>
+                <option value="7" {% if selected_semester=='7' %}selected{% endif %}>Sem 7</option>
+                <option value="8" {% if selected_semester=='8' %}selected{% endif %}>Sem 8</option>
+            </select>
+        </div>
+
+        <div class="lg:col-span-1">
+            <label class="block text-xs font-medium text-gray-400 mb-1">Subject</label>
+            <select name="subject"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="All">All Subjects</option>
+                {% for sub in subjects %}
+                <option value="{{ sub.name }}" {% if selected_subject==sub.name %}selected{% endif %}>{{ sub.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="lg:col-span-1">
+            <label class="block text-xs font-medium text-gray-400 mb-1">Period</label>
+            <select name="period"
+                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="All">All Periods</option>
+                {% for p in periods %}
+                <option value="{{ p.period_no }}" {% if selected_period|string==p.period_no|string %}selected{% endif
+                    %}>
+                    {{ p.label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="lg:col-span-1">
+            <label for="view_mode" class="block text-xs font-medium text-gray-400 mb-1">View Mode</label>
+            <select id="view_mode" name="view_mode"
+                class="w-full p-2.5 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                <option value="Daily Summary" {% if view_mode == 'Daily Summary' %}selected{% endif %}>Daily Summary</option>
+                <option value="Period Wise" {% if view_mode == 'Period Wise' %}selected{% endif %}>Period Wise</option>
+                <option value="Monthly Summary" {% if view_mode == 'Monthly Summary' %}selected{% endif %}>Monthly Summary</option>
+                <option value="Student Wise" {% if view_mode == 'Student Wise' %}selected{% endif %}>Student Wise</option>
+                <option value="Subject Wise" {% if view_mode == 'Subject Wise' %}selected{% endif %}>Subject Wise</option>
+            </select>
+        </div>
+
+        <div class="lg:col-span-1 flex gap-2">
+            <button type="submit"
+                class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-lg shadow-purple-900/20 transition-all hover:-translate-y-0.5">
+                Apply
+            </button>
+            <a href="{{ url_for('admin_attendance_report') }}"
+                class="px-3 py-2.5 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 rounded-lg border border-[#333] transition-colors flex items-center justify-center">
+                <i class="fas fa-undo"></i>
+            </a>
+        </div>
+    </form>
+
+    <!-- Quick Filters -->
+    <div class="mt-4 flex gap-2 overflow-x-auto pb-1">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wider self-center mr-2">Quick Filters:</span>
+        <button type="button" onclick="setFilter('today')"
+            class="px-3 py-1 bg-[#1a1a1a] border border-[#333] hover:border-blue-500 text-gray-300 text-xs rounded-full transition-colors">Today</button>
+        <button type="button" onclick="setFilter('week')"
+            class="px-3 py-1 bg-[#1a1a1a] border border-[#333] hover:border-blue-500 text-gray-300 text-xs rounded-full transition-colors">This
+            Week</button>
+        <button type="button" onclick="setFilter('month')"
+            class="px-3 py-1 bg-[#1a1a1a] border border-[#333] hover:border-blue-500 text-gray-300 text-xs rounded-full transition-colors">This
+            Month</button>
+        <button type="button" onclick="setFilter('year')"
+            class="px-3 py-1 bg-[#1a1a1a] border border-[#333] hover:border-blue-500 text-gray-300 text-xs rounded-full transition-colors">This
+            Year</button>
+    </div>
+
+    <script>
+        function setFilter(period) {
+            const today = new Date();
+            let start = new Date();
+            let end = new Date();
+
+            if (period === 'today') {
+                // start/end is today
+            } else if (period === 'week') {
+                // Start of week (Sunday or Monday?) Let's say Monday
+                const day = today.getDay();
+                const diff = today.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+                start.setDate(diff); // Monday
+                end.setDate(start.getDate() + 6); // Sunday
+            } else if (period === 'month') {
+                start = new Date(today.getFullYear(), today.getMonth(), 1);
+                end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            } else if (period === 'year') {
+                start = new Date(today.getFullYear(), 0, 1);
+                end = new Date(today.getFullYear(), 11, 31);
+            }
+
+            // Format YYYY-MM-DD
+            const fmt = d => d.toISOString().split('T')[0];
+            document.getElementById('start_date').value = fmt(start);
+            document.getElementById('end_date').value = fmt(end);
+            document.querySelector('form').submit();
+        }
+    </script>
+</div>
+
+{% if not sem_info and batch_year and selected_semester and selected_semester != 'All' %}
+
+<div class="bg-amber-900/20 border border-amber-900/50 p-4 rounded-xl mb-6 flex items-start gap-4 animate-pulse">
+    <i class="fas fa-exclamation-triangle text-amber-500 text-xl mt-1"></i>
+    <div>
+        <h4 class="text-amber-400 font-bold">Semester Dates Not Configured</h4>
+        <p class="text-sm text-gray-400">Attendance percentages cannot be accurately calculated because the academic
+            calendar for this batch/semester is missing. Please <a href="{{ url_for('admin_semester_info') }}"
+                class="text-amber-500 underline hover:text-amber-400">Configure Semester Info</a>.</p>
+    </div>
+</div>
+{% endif %}
+
+
+
+{% if class_summary %}
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+    <div class="card p-4 border-l-4 border-l-blue-500 bg-blue-500/5">
+        <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-1">Total Students</div>
+        <div class="text-2xl font-black text-blue-400">{{ class_summary.total }}</div>
+    </div>
+    <div class="card p-4 border-l-4 border-l-purple-500 bg-purple-500/5">
+        <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-1">Avg Attendance</div>
+        <div class="text-2xl font-black text-purple-400">{{ class_summary.avg_pct }}%</div>
+    </div>
+    <div class="card p-4 border-l-4 border-l-green-500 bg-green-500/5">
+        <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-1">>= 75% (Safe)</div>
+        <div class="text-2xl font-black text-green-400">{{ class_summary.above_75 }}</div>
+    </div>
+    <div class="card p-4 border-l-4 border-l-amber-500 bg-amber-500/5">
+        <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-1">60-74% (Shortage)</div>
+        <div class="text-2xl font-black text-amber-400">{{ class_summary.between_60_74 }}</div>
+    </div>
+    <div class="card p-4 border-l-4 border-l-red-500 bg-red-500/5">
+        <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-1">
+            < 60% (Critical)</div>
+                <div class="text-2xl font-black text-red-400">{{ class_summary.below_60 }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+
+    <!-- Report Header & Actions -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4 no-print">
+        <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-xl font-bold text-white">Attendance Records</h2>
+            <span class="px-3 py-1 bg-gray-800 rounded-full text-xs font-mono text-gray-400 border border-gray-700">
+                Records Found: <span class="text-white font-bold">{{ attendance_logs|length }}</span>
+            </span>
+            {% if view_mode %}
+            <span
+                class="px-3 py-1 bg-purple-900/50 rounded-full text-xs font-mono text-purple-300 border border-purple-700/50">
+                View: <span class="text-white font-bold">{{ view_mode }}</span>
+            </span>
+            {% endif %}
+            {% if status_filter and status_filter != 'All' %}
+            <span
+                class="px-3 py-1 bg-amber-900/50 rounded-full text-xs font-mono text-amber-300 border border-amber-700/50">
+                Status: <span class="text-white font-bold">{{ status_filter }}</span>
+            </span>
+            {% endif %}
+            {% if selected_period and selected_period != 'All' %}
+            <span
+                class="px-3 py-1 bg-indigo-900/50 rounded-full text-xs font-mono text-indigo-300 border border-indigo-700/50">
+                Period: <span class="text-white font-bold">{{ selected_period }}</span>
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="flex gap-2">
+            <a href="{{ url_for('export_attendance_report', format='csv', department=selected_dept, year=selected_year, batch_year=batch_year, semester=selected_semester, subject=selected_subject, period=selected_period, start_date=start_date, end_date=end_date, status=status_filter, view_mode=view_mode) }}"
+                class="flex items-center gap-2 px-3 py-2 bg-green-900/20 text-green-400 hover:bg-green-900/40 border border-green-900/50 rounded-lg transition-colors text-sm">
+                <i class="fas fa-file-csv"></i> CSV
+            </a>
+            <a href="{{ url_for('export_attendance_report', format='excel', department=selected_dept, year=selected_year, batch_year=batch_year, semester=selected_semester, subject=selected_subject, period=selected_period, start_date=start_date, end_date=end_date, status=status_filter, view_mode=view_mode) }}"
+                class="flex items-center gap-2 px-3 py-2 bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 border border-blue-900/50 rounded-lg transition-colors text-sm">
+                <i class="fas fa-file-excel"></i> Excel
+            </a>
+            <a href="{{ url_for('export_attendance_report', format='pdf', department=selected_dept, year=selected_year, batch_year=batch_year, semester=selected_semester, subject=selected_subject, period=selected_period, start_date=start_date, end_date=end_date, status=status_filter, view_mode=view_mode) }}"
+                class="flex items-center gap-2 px-3 py-2 bg-red-900/20 text-red-400 hover:bg-red-900/40 border border-red-900/50 rounded-lg transition-colors text-sm">
+                <i class="fas fa-file-pdf"></i> PDF
+            </a>
+            <a href="{{ url_for('print_attendance_report', department=selected_dept, year=selected_year, batch_year=batch_year, semester=selected_semester, subject=selected_subject, period=selected_period, start_date=start_date, end_date=end_date, status=status_filter) }}"
+                target="_blank"
+                class="flex items-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors text-sm">
+                <i class="fas fa-print"></i> Print
+            </a>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="responsive-table w-full text-sm">
+                <thead>
+                    <tr>
+                        {% if view_mode == 'Daily Summary' %}
+                        <th>Date</th>
+                        <th class="text-center">Total Periods</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center text-purple-400">Attendance %</th>
+                        {% elif view_mode == 'Period Wise' %}
+                        <th>Date</th>
+                        <th class="text-center">Period</th>
+                        <th class="text-center">Total Students</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center">Absent</th>
+                        {% elif view_mode == 'Monthly Summary' %}
+                        <th>Month</th>
+                        <th class="text-center">Total Periods</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center text-purple-400">Attendance %</th>
+                        {% elif view_mode == 'Student Wise' %}
+                        <th>Student</th>
+                        <th class="text-center">Register No</th>
+                        <th class="text-center">Total Periods</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center text-purple-400">Attendance %</th>
+                        {% elif view_mode == 'Subject Wise' %}
+                        <th>Subject</th>
+                        <th class="text-center">Total Periods</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center text-purple-400">Attendance %</th>
+                        {% else %}
+                        <th class="whitespace-nowrap">Date & Time</th>
+                        <th class="text-center">Period</th>
+                        <th>Student</th>
+                        <th>Dept / Batch</th>
+                        <th>Subject</th>
+                        {% if view_mode == 'Raw Records' %}
+                        <th class="text-center">Mode</th>
+                        <th class="text-center">Proof</th>
+                        {% endif %}
+                        <th>Status</th>
+                        <th class="text-center text-purple-400">Attendance %</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in attendance_logs %}
+                    <tr class="hover:bg-gray-800/30 transition-colors">
+                        {% if view_mode == 'Daily Summary' %}
+                        <td class="font-bold text-white">{{ log.group_date.strftime('%d/%m/%Y') if log.group_date else '-' }}</td>
+                        <td class="text-center text-gray-300 font-mono">{{ log.total_classes }}</td>
+                        <td class="text-center text-green-400 font-bold">{{ log.present_count }}</td>
+                        <td class="text-center">
+                            <span class="text-lg font-bold {% if log.attendance_pct >= 75 %}text-green-400{% elif log.attendance_pct >= 60 %}text-amber-400{% else %}text-red-400{% endif %}">
+                                {{ log.attendance_pct }}%
+                            </span>
+                        </td>
+                        {% elif view_mode == 'Period Wise' %}
+                        <td class="font-bold text-white">{{ log.group_date.strftime('%d/%m/%Y') if log.group_date else '-' }}</td>
+                        <td class="text-center font-black text-blue-400">{{ log.period_no }}</td>
+                        <td class="text-center text-gray-400">{{ log.total_classes }}</td>
+                        <td class="text-center text-green-400 font-bold">{{ log.present_count }}</td>
+                        <td class="text-center text-red-400 font-bold">{{ log.absent_count }}</td>
+                        {% elif view_mode == 'Monthly Summary' %}
+                        <td class="font-bold text-white">{{ log.month_name }}</td>
+                        <td class="text-center text-gray-300 font-mono">{{ log.total_classes }}</td>
+                        <td class="text-center text-green-400 font-bold">{{ log.present_count }}</td>
+                        <td class="text-center">
+                            <span class="text-lg font-bold {% if log.attendance_pct >= 75 %}text-green-400{% elif log.attendance_pct >= 60 %}text-amber-400{% else %}text-red-400{% endif %}">
+                                {{ log.attendance_pct }}%
+                            </span>
+                        </td>
+                        {% elif view_mode == 'Student Wise' %}
+                        <td class="font-bold text-white">{{ log.student }}</td>
+                        <td class="text-center text-gray-400 font-mono">{{ log.register_no }}</td>
+                        <td class="text-center text-gray-300 font-mono">{{ log.total_classes }}</td>
+                        <td class="text-center text-green-400 font-bold">{{ log.present_count }}</td>
+                        <td class="text-center">
+                            <span class="text-lg font-bold {% if log.attendance_pct >= 75 %}text-green-400{% elif log.attendance_pct >= 60 %}text-amber-400{% else %}text-red-400{% endif %}">
+                                {{ log.attendance_pct }}%
+                            </span>
+                        </td>
+                        {% elif view_mode == 'Subject Wise' %}
+                        <td class="font-bold text-white">{{ log.subject }}</td>
+                        <td class="text-center text-gray-300 font-mono">{{ log.total_classes }}</td>
+                        <td class="text-center text-green-400 font-bold">{{ log.present_count }}</td>
+                        <td class="text-center">
+                            <span class="text-lg font-bold {% if log.attendance_pct >= 75 %}text-green-400{% elif log.attendance_pct >= 60 %}text-amber-400{% else %}text-red-400{% endif %}">
+                                {{ log.attendance_pct }}%
+                            </span>
+                        </td>
+                        {% else %}
+                        <td data-label="Date & Time" class="font-mono text-gray-400">
+                            {% if log.timestamp %}
+                            <div class="flex flex-col">
+                                <span class="text-white font-bold">{{ log.timestamp.strftime('%d/%m/%Y') }}</span>
+                                <span class="text-xs text-gray-500">{{ log.timestamp.strftime('%H:%M:%S') }}</span>
+                            </div>
+                            {% else %}
+                            {{ start_date }}<br>
+                            <span class="text-xs text-red-500">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Period" class="text-center">
+                            <div class="font-bold text-white text-lg">{{ log.period_no or '-' }}</div>
+                            <div class="text-[10px] text-gray-500 whitespace-nowrap">{{ log.time_slot or '-' }}</div>
+                        </td>
+                        <td data-label="Student">
+                            <div class="font-bold text-white">{{ log.full_name }}</div>
+                            <div class="text-xs text-gray-500 font-mono">{{ log.roll_number }}</div>
+                        </td>
+                        <td data-label="Dept / Batch" class="text-gray-400">
+                            <div class="font-bold text-gray-300">{{ log.department or '-' }}</div>
+                            <div class="text-xs text-gray-500">
+                                {% if log.batch_year %}
+                                    {% if 'Batch' in log.batch_year %}
+                                        {{ log.batch_year }}
+                                    {% else %}
+                                        Batch {{ log.batch_year }}
+                                    {% endif %}
+                                {% else %}
+                                    Year {{ log.year or '-' }}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td data-label="Subject" class="text-white">{{ log.subject }}</td>
+                        {% if view_mode == 'Raw Records' %}
+                        <td data-label="Mode" class="text-center">
+                            {% if log.method %}
+                            <span
+                                class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
+                                {% if log.method == 'manual' %}bg-amber-900/30 text-amber-400 border border-amber-900/50{% else %}bg-purple-900/30 text-purple-400 border border-purple-900/50{% endif %}">
+                                {{ log.method }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-600 text-xs">-</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Proof" class="text-center">
+                            {% if log.proof_image_path %}
+                            <div onclick="openProofModal(this)"
+                                data-proof-url="{{ url_for('serve_proof_by_path', path=log.proof_image_path) }}"
+                                data-proof-title="Proof: {{ log.full_name }} - {{ log.timestamp }}"
+                                class="relative group cursor-pointer w-10 h-10 mx-auto">
+                                <img src="{{ url_for('serve_proof_by_path', path=log.proof_image_path) }}"
+                                    class="w-full h-full object-cover rounded-md border border-gray-600 transition-transform group-hover:scale-110 shadow-lg"
+                                    loading="lazy">
+                                <div
+                                    class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center rounded-md">
+                                    <i class="fas fa-search-plus text-xs text-white"></i>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-gray-600">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td data-label="Status">
+                            {% if log.status == 'Present' %}
+                            <span
+                                class="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-green-900/30 text-green-400 border border-green-900/50">
+                                <i class="fas fa-check mr-1.5"></i> Present
+                            </span>
+                            {% elif log.status == 'OD' %}
+                            <span
+                                class="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-blue-900/30 text-blue-400 border border-blue-900/50">
+                                <i class="fas fa-briefcase mr-1.5"></i> On Duty
+                            </span>
+                            {% else %}
+                            <span
+                                class="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-red-900/30 text-red-400 border border-red-900/50">
+                                <i class="fas fa-times mr-1.5"></i> Absent
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Attendance %" class="text-center">
+                            {% if log.attendance_pct is not none %}
+                            <div class="flex flex-col items-center">
+                                <span
+                                    class="text-lg font-bold {% if log.attendance_pct >= 75 %}text-green-400{% elif log.attendance_pct >= 60 %}text-amber-400{% else %}text-red-400{% endif %}">
+                                    {{ log.attendance_pct }}%
+                                </span>
+                                <span class="text-[10px] text-gray-500">{{ log.present_count }}/{{ log.total_possible
+                                    }}</span>
+                            </div>
+                            {% else %}
+                            <span class="text-gray-600 italic">N/A</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="p-8 text-center text-gray-500 bg-[#141414]">
+                            <div class="mb-2"><i class="fas fa-search text-4xl text-gray-700"></i></div>
+                            No attendance records found for the selected filters.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="flex justify-center items-center gap-2 mt-6 mb-8 select-none no-print">
+        {% if page > 1 %}
+        <a href="{{ url_for('admin_attendance_report', page=page-1, department=selected_department, batch_year=batch_year, semester=selected_semester, subject=selected_subject, start_date=start_date, end_date=end_date, status=status_filter, period=selected_period, view_mode=view_mode) }}"
+            class="w-10 h-10 flex items-center justify-center bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded-lg transition-colors border border-[#333]">
+            <i class="fas fa-chevron-left"></i>
+        </a>
+        {% else %}
+        <span
+            class="w-10 h-10 flex items-center justify-center bg-[#1a1a1a] text-gray-600 rounded-lg cursor-not-allowed border border-[#2d2d2d]">
+            <i class="fas fa-chevron-left"></i>
+        </span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+        <span
+            class="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-lg font-bold shadow-lg shadow-blue-900/20">{{
+            p }}</span>
+        {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %} <a
+            href="{{ url_for('admin_attendance_report', page=p, department=selected_department, batch_year=batch_year, semester=selected_semester, subject=selected_subject, start_date=start_date, end_date=end_date, status=status_filter, period=selected_period, view_mode=view_mode) }}"
+            class="w-10 h-10 flex items-center justify-center bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 hover:text-white rounded-lg transition-colors border border-[#333]">
+            {{ p }}
+            </a>
+            {% elif p == page - 3 or p == page + 3 %}
+            <span class="text-gray-500">...</span>
+            {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %} <a
+                href="{{ url_for('admin_attendance_report', page=page+1, department=selected_department, batch_year=batch_year, semester=selected_semester, subject=selected_subject, start_date=start_date, end_date=end_date, status=status_filter, period=selected_period, view_mode=view_mode) }}"
+                class="w-10 h-10 flex items-center justify-center bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded-lg transition-colors border border-[#333]">
+                <i class="fas fa-chevron-right"></i>
+                </a>
+                {% else %}
+                <span
+                    class="w-10 h-10 flex items-center justify-center bg-[#1a1a1a] text-gray-600 rounded-lg cursor-not-allowed border border-[#2d2d2d]">
+                    <i class="fas fa-chevron-right"></i>
+                </span>
+                {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Image Modal -->
+    <div id="imageModal"
+        class="fixed inset-0 bg-black/90 hidden z-50 flex items-center justify-center p-4 backdrop-blur-xl transition-opacity opacity-0 pointer-events-none"
+        onclick="closeModal()">
+        <div class="relative max-w-4xl max-h-[90vh] bg-[#1a1a1a] p-2 rounded-xl border border-[#2d2d2d] shadow-2xl transform transition-transform scale-95"
+            onclick="event.stopPropagation()">
+            <div class="absolute top-2 right-2 z-10">
+                <button onclick="closeModal()"
+                    class="bg-black/50 hover:bg-red-600 text-white p-2 rounded-full transition-colors w-8 h-8 flex items-center justify-center">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <h3 id="modalCaption" class="text-white text-lg font-bold mb-2 text-center p-2"></h3>
+            <img id="modalImage" src="" class="rounded-lg max-h-[75vh] mx-auto object-contain">
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
+    <script id="departments-data" type="application/json">{{ departments | tojson | safe }}</script>
+    <script>
+        const departmentsData = JSON.parse(document.getElementById('departments-data').textContent);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Debug Logs (User Requirement)
+            const departments = departmentsData;
+
+            console.log("Departments Loaded:", departments);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            console.log("Report Request Params:", Object.fromEntries(urlParams.entries()));
+
+            // Initialize Confidence Bars if any
+            document.querySelectorAll('.confidence-bar').forEach(bar => {
+                bar.style.width = bar.getAttribute('data-width');
+            });
+
+            // Re-run detection if batch is already selected (e.g. after search)
+            detectYearAndSem();
+        });
+
+        // Batch -> Year/Sem Logic
+        const batchSelect = document.querySelector('select[name="batch_year"]');
+        if (batchSelect) {
+            batchSelect.addEventListener('change', detectYearAndSem);
+        }
+
+        function detectYearAndSem() {
+            const batchSelect = document.querySelector('select[name="batch_year"]');
+            const yearSelect = document.querySelector('select[name="year"]');
+            const semSelect = document.querySelector('select[name="semester"]');
+
+            if (!batchSelect || !yearSelect || !semSelect) return;
+
+            const selectedOption = batchSelect.options[batchSelect.selectedIndex];
+            const startYear = parseInt(selectedOption.getAttribute('data-start-year'));
+
+            if (!startYear) {
+                // Reset or keep "All"
+                return;
+            }
+
+            // Calculate Current Year
+            const now = new Date();
+            const currYear = now.getFullYear();
+            const currMonth = now.getMonth() + 1; // 1-12
+            const effectiveAcademicYearStart = currMonth >= 7 ? currYear : currYear - 1;
+            const diff = effectiveAcademicYearStart - startYear;
+            let year = diff + 1;
+
+            if (year < 1) year = 1;
+            if (year > 4) year = 4;
+
+            console.log("Detected Year:", year);
+
+            // Auto-select Year
+            yearSelect.value = year.toString();
+        }
+
+        function setFilter(period) {
+            const today = new Date();
+            let start = new Date();
+            let end = new Date();
+
+            if (period === 'today') {
+                // start/end is today
+            } else if (period === 'week') {
+                // Start of week (Monday)
+                const day = today.getDay();
+                const diff = today.getDate() - day + (day == 0 ? -6 : 1);
+                start.setDate(diff); // Monday
+                end.setDate(start.getDate() + 6); // Sunday
+            } else if (period === 'month') {
+                start = new Date(today.getFullYear(), today.getMonth(), 1);
+                end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            } else if (period === 'year') {
+                start = new Date(today.getFullYear(), 0, 1);
+                end = new Date(today.getFullYear(), 11, 31);
+            }
+
+            // Format YYYY-MM-DD
+            const fmt = d => d.toISOString().split('T')[0];
+            document.querySelector('input[name="start_date"]').value = fmt(start);
+            document.querySelector('input[name="end_date"]').value = fmt(end);
+        }
+
+        function openProofModal(element) {
+            const src = element.getAttribute('data-proof-url');
+            const caption = element.getAttribute('data-proof-title');
+            openModal(src, caption);
+        }
+
+        function openModal(src, caption) {
+            const modal = document.getElementById('imageModal');
+            const img = document.getElementById('modalImage');
+            const cap = document.getElementById('modalCaption');
+            const container = modal.children[0];
+
+            img.src = src;
+            cap.innerText = caption;
+
+            modal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                container.classList.remove('scale-95');
+                container.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('imageModal');
+            const container = modal.children[0];
+
+            modal.classList.remove('opacity-100');
+            container.classList.remove('scale-100');
+            container.classList.add('scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('pointer-events-none', 'hidden');
+            }, 300);
+        }
+
+        function autoSelectYear() {
+            const semSelect = document.querySelector('select[name="semester"]');
+            const yearSelect = document.querySelector('select[name="year"]');
+
+            if (semSelect && semSelect.value && semSelect.value !== 'All') {
+                const sem = parseInt(semSelect.value);
+                const year = Math.ceil(sem / 2);
+                yearSelect.value = year.toString();
+            }
+        }
+
+        // --- Flatpickr Initialization ---
+        // Include Flatpickr if not already present (Dynamic Injection)
+        if (!window.flatpickr) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css';
+            link.theme = 'dark';
+            document.head.appendChild(link);
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/flatpickr';
+            script.onload = initFlatpickr;
+            document.head.appendChild(script);
+        } else {
+            initFlatpickr();
+        }
+
+        function initFlatpickr() {
+            flatpickr(".datepicker-input", {
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "d/m/Y",
+                theme: "dark",
+                allowInput: true
+            });
+        }
+    </script>
+    <style>
+        .flatpickr-calendar {
+            background: #1a1a1a !important;
+            border: 1px solid #333 !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+        }
+        .flatpickr-day.selected {
+            background: #9333ea !important;
+            border-color: #9333ea !important;
+        }
+    </style>
+    {% endblock %}

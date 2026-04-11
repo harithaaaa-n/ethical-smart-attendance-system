@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Student - ADHIYAMAAN Attendance System</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f0f0f;
+            color: white;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #2d2d2d;
+            border-radius: 12px;
+        }
+
+        .video-stream {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body class="flex flex-col min-h-screen">
+    <header class="bg-[#141414] border-b border-gray-800 p-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <a href="{{ url_for('admin_user_management') }}" class="p-2 rounded-lg hover:bg-gray-800">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h2 class="font-bold">Edit Student: {{ student.full_name }}</h2>
+        </div>
+        <div class="flex items-center space-x-4">
+            <p class="text-sm">Welcome, <span class="font-semibold">{{ session.full_name }}</span></p>
+            <a href="{{ url_for('logout') }}" class="text-red-400 hover:text-red-300">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </header>
+
+    <main class="flex-grow p-6 bg-[#0f0f0f]">
+        <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="card p-6 h-full">
+                <h1 class="text-2xl font-bold mb-4 text-center">Edit Student Details</h1>
+                <form action="{{ url_for('edit_student', student_id=student.id) }}" method="POST" class="space-y-4">
+                    <div>
+                        <label for="full_name" class="block text-sm font-medium text-gray-400">Full Name</label>
+                        <input type="text" id="full_name" name="full_name" value="{{ student.full_name }}" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    <div>
+                        <label for="roll_number" class="block text-sm font-medium text-gray-400">Roll Number</label>
+                        <input type="text" id="roll_number" name="roll_number" value="{{ student.roll_number }}"
+                            required class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    <div>
+                        <label for="department" class="block text-sm font-medium text-gray-400">Department</label>
+                        <select id="department" name="department" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                            <option value="">Select Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}" {% if student.department==dept %}selected{% endif %}>{{ dept }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="year" class="block text-sm font-medium text-gray-400">Year</label>
+                        <select id="year" name="year" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                            <option value="">Select Year</option>
+                            {% for year in years %}
+                            <option value="{{ year }}" {% if student.year|string==year|string %}selected{% endif %}>{{
+                                year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-400">Username</label>
+                        <input type="text" id="username" name="username" value="{{ student.username }}" required
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-400">Password (Leave blank to
+                            keep old password)</label>
+                        <input type="password" id="password" name="password"
+                            class="mt-1 w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg">
+                        Update Details
+                    </button>
+                </form>
+            </div>
+
+            <div id="faceEnrollmentCard" class="card p-6 h-full">
+                <h1 class="text-2xl font-bold mb-4 text-center">Re-enroll Face</h1>
+                <p class="text-gray-400 mb-4 text-center">Align your face in the box and click "Capture" to update your
+                    face enrollment.</p>
+                <div class="relative flex justify-center items-center rounded-lg overflow-hidden">
+                    <img id="enrollmentVideo" class="video-stream"
+                        src="{{ url_for('enrollment_video_feed', student_id=student.id) }}">
+                </div>
+
+                <div id="captureButtonContainer" class="flex justify-center mt-4">
+                    <button id="captureFaceBtn"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg"
+                        data-student-id="{{ student.id }}">
+                        Re-enroll Face
+                    </button>
+                </div>
+
+                <div id="faceStatus" class="mt-4 text-center p-2 rounded-lg hidden"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const enrollmentVideo = document.getElementById('enrollmentVideo');
+            const captureFaceBtn = document.getElementById('captureFaceBtn');
+            const faceStatus = document.getElementById('faceStatus');
+            const studentId = captureFaceBtn.getAttribute('data-student-id');
+
+            captureFaceBtn.addEventListener('click', function () {
+                const canvas = document.createElement('canvas');
+                canvas.width = enrollmentVideo.videoWidth;
+                canvas.height = enrollmentVideo.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(enrollmentVideo, 0, 0, canvas.width, canvas.height);
+
+                const imageData = canvas.toDataURL('image/jpeg');
+
+                faceStatus.textContent = 'Capturing face. Please wait...';
+                faceStatus.classList.remove('hidden');
+                faceStatus.classList.remove('bg-green-600', 'bg-red-600');
+                faceStatus.classList.add('bg-gray-600');
+
+                fetch('{{ url_for("capture_face") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        image_data: imageData
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            faceStatus.textContent = 'Face enrolled successfully!';
+                            faceStatus.classList.remove('bg-gray-600', 'bg-red-600');
+                            faceStatus.classList.add('bg-green-600');
+                        } else {
+                            faceStatus.textContent = 'Error: ' + data.message;
+                            faceStatus.classList.remove('bg-gray-600', 'bg-green-600');
+                            faceStatus.classList.add('bg-red-600');
+                        }
+                    })
+                    .catch(error => {
+                        faceStatus.textContent = 'An error occurred during face capture.';
+                        faceStatus.classList.remove('bg-gray-600', 'bg-green-600');
+                        faceStatus.classList.add('bg-red-600');
+                        console.error('Error:', error);
+                    });
+            });
+        });
+    </script>
+</body>
+
+</html>

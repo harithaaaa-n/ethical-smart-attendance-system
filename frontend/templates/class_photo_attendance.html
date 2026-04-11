@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}Class Photo Attendance - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Class Photo Attendance{% endblock %}
+{% block subheader %}Group Face Recognition from Uploaded Photos{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- Session Detail Card -->
+    <div class="card p-6 border-b-2 border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Selected Department</p>
+                <p class="text-sm font-bold text-white">{{ department }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Academic Year</p>
+                <p class="text-sm font-bold text-white">Year {{ year }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Active Subject</p>
+                <p class="text-sm font-bold text-orange-400 capitalize">{{ subject }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Time Slot</p>
+                <p class="text-sm font-bold text-white">{{ period or 'Manual/Flexible' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="card p-8 border border-[#2d2d2d] bg-[#141414]">
+        <form id="uploadForm" class="space-y-8">
+            <!-- Hidden context -->
+            <input type="hidden" name="department" value="{{ department }}">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="subject" value="{{ subject }}">
+            <input type="hidden" name="batch_year" value="{{ batch_year }}">
+            <input type="hidden" name="semester" value="{{ semester }}">
+            <input type="hidden" name="period" value="{{ period }}">
+
+            <!-- Drop Zone -->
+            <div id="dropZone"
+                class="group relative p-12 border-2 border-dashed border-[#2d2d2d] rounded-3xl bg-[#1a1a1a] hover:border-orange-500/50 hover:bg-orange-500/5 transition-all cursor-pointer text-center">
+                <input type="file" name="file" id="fileInput" multiple accept="image/*"
+                    class="absolute inset-0 opacity-0 cursor-pointer">
+
+                <div class="space-y-4 pointer-events-none">
+                    <div
+                        class="w-20 h-20 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto transition-transform group-hover:scale-110">
+                        <i class="fas fa-images text-3xl text-orange-500"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Upload Class Photos</h3>
+                        <p class="text-sm text-gray-500">Drag & drop your photos here or click to browse</p>
+                    </div>
+                    <div id="fileInfo"
+                        class="hidden font-mono text-xs font-bold text-orange-500 bg-orange-500/10 px-4 py-2 rounded-full inline-block">
+                        0 Files Selected
+                    </div>
+                </div>
+            </div>
+
+            <!-- OD Students (Consistent with other modes) -->
+            <div class="p-6 bg-[#1a1a1a] rounded-2xl border border-[#2d2d2d] space-y-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-user-clock text-blue-500"></i>
+                    </div>
+                    <h4 class="text-sm font-bold text-white uppercase tracking-wider">On-Duty (OD) Students</h4>
+                </div>
+                <p class="text-xs text-gray-500">Enter roll numbers of students who are on duty (e.g., 25, 032, 48)</p>
+                <input type="text" name="od_students" id="odInput"
+                    placeholder="Enter roll numbers separated by commas..."
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-xl p-4 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+            </div>
+
+            <button type="submit" id="processBtn" disabled
+                class="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-gray-800 disabled:text-gray-500 text-white p-5 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-orange-600/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3">
+                <i class="fas fa-brain text-xl"></i>
+                Process Class Photos
+            </button>
+        </form>
+    </div>
+
+    <!-- Processing Modal/Overlay -->
+    <div id="processingOverlay"
+        class="hidden fixed inset-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="max-w-md w-full text-center space-y-8 mt-12">
+            <div class="relative w-32 h-32 mx-auto">
+                <div class="absolute inset-0 border-4 border-orange-500/20 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-orange-500 border-t-transparent rounded-full animate-spin">
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <i class="fas fa-bolt text-4xl text-orange-500 animate-pulse"></i>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Analyzing Photos</h2>
+                <p class="text-gray-500 text-sm">Identifying students using deep learning face recognition...</p>
+            </div>
+
+            <div class="w-full bg-[#1a1a1a] rounded-full h-2 overflow-hidden">
+                <div id="processingProgress" class="bg-orange-600 h-full w-0 transition-all duration-1000"></div>
+            </div>
+
+            <p id="statusText" class="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Checking
+                embeddings...</p>
+        </div>
+    </div>
+
+    <!-- Results Section (Hidden initially) -->
+    <div id="resultsSection" class="hidden space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Stats -->
+            <div class="card p-6 border-l-4 border-l-green-600">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Identified</p>
+                <p class="text-3xl font-black text-white" id="resPresent">0</p>
+            </div>
+            <div class="card p-6 border-l-4 border-l-blue-600">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">On-Duty (OD)</p>
+                <p class="text-3xl font-black text-white" id="resOD">0</p>
+            </div>
+            <div class="card p-6 border-l-4 border-l-red-600">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Absentees</p>
+                <p class="text-3xl font-black text-white" id="resAbsent">0</p>
+            </div>
+        </div>
+
+        <div class="card overflow-hidden">
+            <div class="p-4 bg-[#1a1a1a] border-b border-[#2d2d2d] flex justify-between items-center">
+                <h4 class="text-sm font-bold text-white uppercase tracking-widest">Detected Students</h4>
+                <button onclick="location.reload()"
+                    class="text-[10px] font-bold text-gray-500 hover:text-white uppercase">Reset & Try Again</button>
+            </div>
+            <div class="max-h-96 overflow-y-auto" id="detectedList">
+                <!-- Row template -->
+            </div>
+        </div>
+
+        <!-- NEW: Unknown Faces Section -->
+        <div id="unknownSection" class="hidden card overflow-hidden">
+            <div class="p-4 bg-[#1a1a1a] border-b border-[#2d2d2d]">
+                <h4 class="text-sm font-bold text-white uppercase tracking-widest">Unknown Detected Faces</h4>
+            </div>
+            <div class="p-6 grid grid-cols-4 md:grid-cols-8 gap-4" id="unknownList">
+                <!-- Cropped faces grid -->
+            </div>
+        </div>
+
+        <!-- NEW: Absentees Section -->
+        <div id="absentSection" class="hidden card overflow-hidden">
+            <div class="p-4 bg-red-950/20 border-b border-red-500/20">
+                <h4 class="text-sm font-bold text-red-500 uppercase tracking-widest">Identified Absentees</h4>
+            </div>
+            <div class="p-4 bg-red-500/5 max-h-64 overflow-y-auto" id="absentList">
+                <!-- Absentees names list -->
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-4">
+            <button id="finalizeBtn" onclick="finalizeAttendance()"
+                class="flex-1 bg-orange-600 hover:bg-orange-700 text-white p-4 rounded-2xl font-black uppercase tracking-widest text-xs text-center shadow-xl transition-all hover:-translate-y-1 flex items-center justify-center gap-2">
+                <i class="fas fa-save text-lg"></i>
+                Save Attendance
+            </button>
+            <a id="fullReportBtn" href="#"
+                class="flex-1 bg-white text-black p-4 rounded-2xl font-black uppercase tracking-widest text-xs text-center shadow-xl transition-all hover:-translate-y-1">
+                View Full Report <i class="fas fa-file-alt ml-2"></i>
+            </a>
+            <a href="{{ url_for('teacher_dashboard') }}"
+                class="flex-1 bg-[#2d2d2d] text-white p-4 rounded-2xl font-black uppercase tracking-widest text-xs text-center transition-all hover:bg-[#3d3d3d]">
+                Return to Dashboard
+            </a>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const fileInfo = document.getElementById('fileInfo');
+    const processBtn = document.getElementById('processBtn');
+    const uploadForm = document.getElementById('uploadForm');
+
+    // Drag and Drop
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('border-orange-500', 'bg-orange-500/5'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-orange-500', 'bg-orange-500/5'), false);
+    });
+
+    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+
+    function handleFiles(files) {
+        if (files.length > 0) {
+            fileInfo.textContent = `${files.length} File(s) Selected`;
+            fileInfo.classList.remove('hidden');
+            processBtn.disabled = false;
+        } else {
+            fileInfo.classList.add('hidden');
+            processBtn.disabled = true;
+        }
+    }
+
+    // Form submission
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const overlay = document.getElementById('processingOverlay');
+        const progress = document.getElementById('processingProgress');
+        const statusText = document.getElementById('statusText');
+
+        overlay.classList.remove('hidden');
+
+        // Pseudo progress
+        let p = 0;
+        const interval = setInterval(() => {
+            p += Math.random() * 5;
+            if (p > 95) p = 95;
+            progress.style.width = p + '%';
+            if (p > 30) statusText.textContent = 'Detecting Faces...';
+            if (p > 60) statusText.textContent = 'Matching against database...';
+            if (p > 80) statusText.textContent = 'Finalizing attendance...';
+        }, 300);
+
+        try {
+            const formData = new FormData(uploadForm);
+            const response = await fetch("{{ url_for('process_class_photo_attendance_route') }}", {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            clearInterval(interval);
+            progress.style.width = '100%';
+
+            if (data.success) {
+                overlay.classList.add('hidden');
+                document.getElementById('uploadForm').parentElement.classList.add('hidden');
+                showResults(data);
+            } else {
+                alert("Error: " + data.message);
+                overlay.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error(error);
+            alert("An error occurred during processing.");
+            overlay.classList.add('hidden');
+            clearInterval(interval);
+        }
+    });
+
+    function showResults(data) {
+        const section = document.getElementById('resultsSection');
+        const list = document.getElementById('detectedList');
+
+        // Backend returns: {success: true, result: { matched_count: X, ... }}
+        const res = data.result;
+
+        document.getElementById('resPresent').textContent = res.matched_count || 0;
+        document.getElementById('resAbsent').textContent = res.absent_students ? res.absent_students.length : 0;
+        document.getElementById('resOD').textContent = res.od_count || 0;
+
+        list.innerHTML = '';
+        const allStudents = res.present_students || [];
+
+        if (allStudents.length === 0) {
+            list.innerHTML = '<div class="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">No students identified in this batch</div>';
+        }
+
+        allStudents.forEach(std => {
+            const row = document.createElement('div');
+            row.className = 'p-4 border-b border-[#2d2d2d] flex items-center justify-between hover:bg-white/[0.02] transition-colors';
+
+            // Add Confidence badge color mapping
+            let confColor = 'text-green-400 bg-green-900/40 border-green-500/20';
+            if (std.confidence < 0.6) confColor = 'text-yellow-400 bg-yellow-900/40 border-yellow-500/20';
+
+            row.innerHTML = `
+                <div class="flex items-center gap-4">
+                    <div class="relative">
+                        <img src="/class_photo/proof${std.proof_path}" class="w-12 h-12 rounded-lg object-cover border border-[#333]" onerror="this.src='/static/avatar_placeholder.png'">
+                        <div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center border-2 border-[#141414]">
+                            <i class="fas fa-check text-[8px] text-white"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-1 ml-4 text-left">
+                    <p class="text-sm font-bold text-white">${std.full_name}</p>
+                    <div class="flex items-center gap-2">
+                         <p class="text-[10px] text-gray-500 uppercase tracking-widest font-mono">${std.roll_number}</p>
+                         <span class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400 font-mono tracking-tighter">
+                            ${Math.round(std.confidence * 100)}% Match
+                         </span>
+                    </div>
+                </div>
+                <div class="text-[10px] ${confColor} px-3 py-1 rounded-full font-black uppercase tracking-widest border">
+                    Present
+                </div>
+            `;
+            list.appendChild(row);
+        });
+
+        // Populate Unknown Faces
+        const unknownSection = document.getElementById('unknownSection');
+        const unknownList = document.getElementById('unknownList');
+        const unknowns = res.unknown_faces || [];
+
+        if (unknowns.length > 0) {
+            unknownList.innerHTML = '';
+            unknowns.forEach(path => {
+                const img = document.createElement('img');
+                img.src = `/class_photo/proof/${path}`;
+                img.className = 'w-full aspect-square object-cover rounded-lg border border-[#333] hover:scale-110 transition-transform cursor-pointer';
+                unknownList.appendChild(img);
+            });
+            unknownSection.classList.remove('hidden');
+        }
+
+        // Populate Absentees
+        const absentSection = document.getElementById('absentSection');
+        const absentList = document.getElementById('absentList');
+        const absents = res.absent_students || [];
+
+        if (absents.length > 0) {
+            absentList.innerHTML = '';
+            absents.forEach(std => {
+                const item = document.createElement('div');
+                item.id = `absent-row-${std.id}`;
+                item.className = 'py-3 px-4 flex justify-between items-center border-b border-red-500/10 last:border-0 hover:bg-red-500/5 transition-colors';
+                item.innerHTML = `
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-400 font-bold">${std.full_name}</p>
+                        <p class="text-[10px] text-red-500/50 font-mono uppercase font-black">${std.roll_number}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="updateStatus(${std.id}, 'Present', '${std.full_name}', '${std.roll_number}')" 
+                                class="text-[9px] bg-green-500/10 text-green-500 px-3 py-1.5 rounded-lg font-black uppercase tracking-widest border border-green-500/20 hover:bg-green-500 hover:text-white transition-all">
+                            Mark Present
+                        </button>
+                        <button onclick="updateStatus(${std.id}, 'OD', '${std.full_name}', '${std.roll_number}')" 
+                                class="text-[9px] bg-blue-500/10 text-blue-500 px-3 py-1.5 rounded-lg font-black uppercase tracking-widest border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all">
+                            Mark OD
+                        </button>
+                    </div>
+                `;
+                absentList.appendChild(item);
+            });
+            absentSection.classList.remove('hidden');
+        }
+
+        // Set full report link
+        const baseReportUrl = "{{ url_for('class_photo_full_report') }}";
+        const params = new URLSearchParams({
+            department: "{{ department }}",
+            year: "{{ year }}",
+            subject: "{{ subject }}",
+            batch_year: "{{ batch_year }}",
+            semester: "{{ semester }}",
+            date: new Date().toISOString().split('T')[0]
+        });
+        document.getElementById('fullReportBtn').href = `${baseReportUrl}?${params.toString()}`;
+
+        section.classList.remove('hidden');
+        section.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function updateStatus(studentId, newStatus, fullName, rollNumber) {
+        if (!confirm(`Mark ${fullName} (${rollNumber}) as ${newStatus}?`)) return;
+
+        try {
+            const response = await fetch("/admin/attendance/update_individual", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: studentId,
+                    subject: "{{ subject }}",
+                    status: newStatus,
+                    period_no: "{{ period }}" // Assuming period is passed as context
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                // 1. Remove from absentee list
+                const row = document.getElementById(`absent-row-${studentId}`);
+                if (row) row.remove();
+
+                // 2. Adjust counts
+                const resAbsent = document.getElementById('resAbsent');
+                resAbsent.textContent = parseInt(resAbsent.textContent) - 1;
+
+                if (newStatus === 'Present') {
+                    const resPresent = document.getElementById('resPresent');
+                    resPresent.textContent = parseInt(resPresent.textContent) + 1;
+
+                    // Add to present list UI
+                    const list = document.getElementById('detectedList');
+                    const newRow = document.createElement('div');
+                    newRow.className = 'p-4 border-b border-[#2d2d2d] flex items-center justify-between hover:bg-white/[0.02] transition-colors animate-in fade-in slide-in-from-left-4';
+                    newRow.innerHTML = `
+                        <div class="flex items-center gap-4">
+                            <div class="relative">
+                                <div class="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center border border-green-500/20">
+                                    <i class="fas fa-user-check text-green-500"></i>
+                                </div>
+                                <div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center border-2 border-[#141414]">
+                                    <i class="fas fa-check text-[8px] text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex-1 ml-4 text-left">
+                            <p class="text-sm font-bold text-white">${fullName} <span class="text-[10px] text-orange-400 opacity-60 ml-2">(Manual Edit)</span></p>
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest font-mono">${rollNumber}</p>
+                        </div>
+                        <div class="text-[10px] text-green-400 bg-green-900/40 px-3 py-1 rounded-full font-black uppercase tracking-widest border border-green-500/20">
+                            Present
+                        </div>
+                    `;
+                    list.insertBefore(newRow, list.firstChild);
+                } else if (newStatus === 'OD') {
+                    const resOD = document.getElementById('resOD');
+                    resOD.textContent = parseInt(resOD.textContent) + 1;
+                }
+
+                // Hide sections if empty
+                if (parseInt(resAbsent.textContent) === 0) {
+                    document.getElementById('absentSection').classList.add('hidden');
+                }
+
+            } else {
+                alert("Error updating status: " + data.message);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("An error occurred while updating status.");
+        }
+    }
+
+    async function finalizeAttendance() {
+        if (!confirm("Are you sure you want to save and finalize this attendance? This will lock the records for official records.")) return;
+
+        const btn = document.getElementById('finalizeBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+        try {
+            const response = await fetch("/api/attendance/finalize_session", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subject: "{{ subject }}",
+                    date: new Date().toISOString().split('T')[0],
+                    period_no: "{{ period }}"
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert("Attendance saved and finalized successfully!");
+                // Clear session context if needed or just redirect
+                window.location.href = document.getElementById('fullReportBtn').href;
+            } else {
+                alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save text-lg"></i> Save Attendance';
+            }
+        } catch (error) {
+            console.error(error);
+            alert("An error occurred while saving attendance.");
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save text-lg"></i> Save Attendance';
+        }
+    }
+</script>
+{% endblock %}

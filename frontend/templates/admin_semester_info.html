@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Semester Information - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Semester Information{% endblock %}
+{% block subheader %}Manage academic calendars and holidays{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Main Configuration Form -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Semester Form -->
+        <div class="lg:col-span-1">
+            <div class="card p-6 border-l-4 border-blue-500 sticky top-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <i class="fas fa-calendar-plus text-blue-400"></i>
+                    {{ 'Edit' if selected_sem else 'Add' }} Semester Calendar
+                </h3>
+                <form method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Batch (e.g., 2024-2028)</label>
+                        <select name="batch_year" id="batch_year" required
+                            class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Select Batch</option>
+                            {% for b in batches %}
+                            <option value="{{ b.name }}" data-start="{{ b.start_year }}" {% if selected_sem and
+                                selected_sem.batch_year==b.name %}selected{% endif %}>
+                                {{ b.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Semester</label>
+                        <select name="semester" id="semester" required
+                            class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                            {% for s in range(1, 9) %}
+                            <option value="{{ s }}" {% if selected_sem and selected_sem.semester==s %}selected{% endif
+                                %}>
+                                Semester {{ s }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Start Date</label>
+                            <input type="date" name="start_date" required
+                                value="{{ selected_sem.start_date.strftime('%Y-%m-%d') if selected_sem else '' }}"
+                                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">End Date</label>
+                            <input type="date" name="end_date" required
+                                value="{{ selected_sem.end_date.strftime('%Y-%m-%d') if selected_sem else '' }}"
+                                class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 p-3 bg-blue-900/10 border border-blue-900/20 rounded-lg">
+                        <input type="checkbox" id="sat_work" name="saturday_working" {% if not selected_sem or
+                            selected_sem.saturday_working %}checked{% endif %}
+                            class="w-4 h-4 text-blue-600 bg-[#141414] border-gray-600 rounded focus:ring-blue-600">
+                        <label for="sat_work" class="text-xs font-medium text-gray-300">Saturday is Working Day</label>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full btn-primary bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all">
+                        <i class="fas fa-save mr-2"></i> Save Configuration
+                    </button>
+                    {% if selected_sem %}
+                    <a href="{{ url_for('admin_semester_info') }}"
+                        class="block text-center text-xs text-gray-500 hover:text-white mt-2">
+                        Cancel Edit
+                    </a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <!-- Semester List -->
+        <div class="lg:col-span-2">
+            <div class="card p-6 border-l-4 border-purple-500 h-fit">
+                <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+                    <i class="fas fa-history text-purple-400"></i>
+                    Configured Semesters
+                </h3>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr
+                                class="border-b border-[#2d2d2d] text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                <th class="pb-3 px-4">Batch</th>
+                                <th class="pb-3 px-4">Semester</th>
+                                <th class="pb-3 px-4">Period</th>
+                                <th class="pb-3 px-4">Sat?</th>
+                                <th class="pb-3 px-4 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-[#2d2d2d]">
+                            {% if not semester_infos %}
+                            <tr>
+                                <td colspan="5" class="py-10 text-center text-gray-500">
+                                    No semesters configured yet.
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% for info in semester_infos %}
+                            <tr class="hover:bg-white/5 transition-colors group">
+                                <td class="py-4 px-4 font-medium text-blue-400">{{ info.batch_year }}</td>
+                                <td class="py-4 px-4">Sem {{ info.semester }}</td>
+                                <td class="py-4 px-4 text-xs text-gray-400">
+                                    {{ info.start_date.strftime('%d/%m/%Y') }} - {{ info.end_date.strftime('%d/%m/%Y')
+                                    }}
+                                </td>
+                                <td class="py-4 px-4">
+                                    {% if info.saturday_working %}
+                                    <span
+                                        class="bg-green-900/20 text-green-400 px-2 py-0.5 rounded text-[10px]">Work</span>
+                                    {% else %}
+                                    <span class="bg-red-900/20 text-red-400 px-2 py-0.5 rounded text-[10px]">Off</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <a href="{{ url_for('admin_semester_info', id=info.id) }}"
+                                            class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                                            title="Manage Holidays">
+                                            <i class="fas fa-umbrella-beach"></i>
+                                        </a>
+                                        <a href="{{ url_for('admin_semester_info', id=info.id) }}"
+                                            class="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
+                                            title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Holiday Management (Shown when a semester is selected) -->
+    {% if selected_sem %}
+    <div id="holidaySection"
+        class="card p-6 border-l-4 border-amber-500 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
+            <div>
+                <h3 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fas fa-umbrella-beach text-amber-400"></i>
+                    Holidays for {{ selected_sem.batch_year }} - Sem {{ selected_sem.semester }}
+                </h3>
+                <p class="text-sm text-gray-400">Add holidays to exclude from attendance base calculation</p>
+            </div>
+            <button onclick="openHolidayModal()"
+                class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all">
+                <i class="fas fa-plus"></i> Add Holiday
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% if not holidays %}
+            <div
+                class="col-span-full py-10 text-center text-gray-500 bg-[#141414] rounded-xl border border-dashed border-[#2d2d2d]">
+                No holidays added yet.
+            </div>
+            {% endif %}
+            {% for h in holidays %}
+            <div class="bg-[#141414] border border-[#2d2d2d] rounded-xl p-4 flex justify-between items-start group">
+                <div>
+                    <div class="text-sm font-bold text-amber-400">{{ h.holiday_date.strftime('%d/%m/%Y (%a)') }}</div>
+                    <div class="text-sm font-medium">{{ h.holiday_name }}</div>
+                    <div class="text-[10px] uppercase tracking-wider text-gray-500 mt-1">{{ h.holiday_type }}</div>
+                </div>
+                <button onclick="deleteHoliday('{{ h.id }}')"
+                    class="p-2 text-gray-600 hover:text-red-500 transition-colors">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Holiday Modal -->
+<div id="holidayModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm"
+    onclick="closeHolidayModal(event)">
+    <div class="bg-[#1a1a1a] w-full max-w-sm rounded-xl border border-[#2d2d2d] shadow-2xl p-6"
+        onclick="event.stopPropagation()">
+        <h3 class="text-xl font-bold mb-1">Add Holiday</h3>
+        <p class="text-xs text-gray-500 mb-6 uppercase tracking-wider">Semester Calendar Adjustment</p>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Date</label>
+                <input type="date" id="h_date"
+                    min="{{ selected_sem.start_date.strftime('%Y-%m-%d') if selected_sem else '' }}"
+                    max="{{ selected_sem.end_date.strftime('%Y-%m-%d') if selected_sem else '' }}"
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-3 text-white outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Holiday Name</label>
+                <input type="text" id="h_name" placeholder="e.g., Deepavali, Pongal"
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-3 text-white outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Type</label>
+                <select id="h_type"
+                    class="w-full bg-[#141414] border border-[#2d2d2d] rounded-lg p-3 text-white outline-none focus:border-amber-500">
+                    <option value="Public Holiday">Public Holiday</option>
+                    <option value="College Holiday">College Holiday</option>
+                    <option value="Exam Holiday">Exam Holiday</option>
+                    <option value="Emergency Leave">Emergency Leave</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-8">
+            <button onclick="closeHolidayModal()"
+                class="flex-1 bg-[#2d2d2d] text-gray-300 py-3 rounded-lg font-bold">Cancel</button>
+            <button onclick="saveHoliday()"
+                class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold shadow-lg shadow-amber-900/20">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openHolidayModal() {
+        document.getElementById('holidayModal').classList.remove('hidden');
+    }
+
+    function closeHolidayModal(e) {
+        if (e && e.target !== document.getElementById('holidayModal')) return;
+        document.getElementById('holidayModal').classList.add('hidden');
+    }
+
+    function saveHoliday() {
+        const date = document.getElementById('h_date').value;
+        const name = document.getElementById('h_name').value;
+        const type = document.getElementById('h_type').value;
+        const semId = "{{ selected_sem.id if selected_sem else 0 }}";
+
+        if (!date || !name) {
+            alert("Please fill all fields");
+            return;
+        }
+
+        fetch("{{ url_for('api_add_holiday') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                semester_info_id: semId,
+                holiday_date: date,
+                holiday_name: name,
+                holiday_type: type
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            });
+    }
+
+    function deleteHoliday(id) {
+        if (!confirm("Are you sure you want to remove this holiday?")) return;
+
+        fetch(`/api/semester/holiday/delete/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            });
+    }
+</script>
+{% endblock %}

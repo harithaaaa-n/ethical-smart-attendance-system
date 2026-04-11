@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Subjects - Academic Setup{% endblock %}
+{% block header %}Academic Setup{% endblock %}
+{% block subheader %}Manage academic subjects{% endblock %}
+
+{% block content %}
+<!-- Main Tabs -->
+
+
+<!-- Academic Sub-Tabs -->
+<div class="flex overflow-x-auto gap-2 mb-8 pb-2">
+    <a href="{{ url_for('academic.departments') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Departments</a>
+    <a href="{{ url_for('academic.years') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Batches</a>
+    <!-- Sections Link Removed -->
+    <a href="{{ url_for('academic.subjects') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-blue-600 text-white shadow-lg shadow-blue-900/20">Subjects</a>
+    <a href="{{ url_for('academic.classes') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Classes</a>
+    <a href="{{ url_for('academic.mapping') }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-[#1a1a1a] [.light-mode_&]:bg-white border border-[#333] [.light-mode_&]:border-gray-200 text-gray-400 [.light-mode_&]:text-gray-600 hover:bg-[#252525] [.light-mode_&]:hover:bg-gray-50 hover:text-white [.light-mode_&]:hover:text-blue-600 transition-colors">Subject
+        Mapping</a>
+</div>
+
+
+
+<div class="grid grid-cols-3 gap-8">
+    <!-- Add Subject Form -->
+    <div class="card p-6 border-t-4 border-t-green-500 h-fit col-span-1">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-plus-circle text-green-500"></i> Add Subject
+        </h3>
+        <form action="{{ url_for('academic.subjects') }}" method="POST" class="flex flex-col gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Subject Name <span
+                        class="text-red-500">*</span></label>
+                <input type="text" name="name" placeholder="e.g. Mathematics" required
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all placeholder-gray-600">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Subject Code</label>
+                    <input type="text" name="code" placeholder="e.g. MAT101"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all placeholder-gray-600">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Regulation</label>
+                    <input type="text" name="regulation" placeholder="e.g. R2024"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all placeholder-gray-600">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Subject Type</label>
+                    <select name="subject_type"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                        <option value="Theory">Theory</option>
+                        <option value="Laboratory">Laboratory</option>
+                        <option value="Practicals">Practicals</option>
+                        <option value="Internals">Internals</option>
+                        <option value="Integrated">Integrated</option>
+                        <option value="Library">Library</option>
+                    </select>
+                </div>
+                <div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                                class="text-red-500">*</span></label>
+                        <select name="batch_id" required
+                            class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                            <option value="">Select Batch</option>
+                            {% for batch in batches %}
+                            <option value="{{ batch.id }}">{{ batch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Credits</label>
+                    <input type="number" name="credits" value="3" min="0" step="0.5"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Semester</label>
+                    <input type="number" name="semester" placeholder="1-8" min="1" max="8"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                </div>
+            </div>
+    </div>
+
+    <!-- Inline Mapping (Optional) -->
+    <div class="border-t border-[#2d2d2d] pt-4 mt-2">
+        <h4 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+            <i class="fas fa-link text-blue-500"></i> Inline Mapping (Optional)
+        </h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Applicable Dept</label>
+                <select name="map_dept_id"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <option value="">-- None (Don't Map) --</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Applicable Section</label>
+                <select name="map_section_id"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <option value="">All / Global</option>
+                    {% for sec in sections %}
+                    <option value="{{ sec.id }}">Section {{ sec.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Mapping Scope</label>
+                <select name="map_scope"
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <option value="GLOBAL">Apply to All Sections</option>
+                    <option value="SECTION">Specific Section Only</option>
+                </select>
+            </div>
+        </div>
+        <p class="text-[10px] text-gray-500 mt-2">
+            <i class="fas fa-info-circle"></i> Selecting a department will automatically create the subject mapping for
+            the selected Batch and Semester.
+        </p>
+    </div>
+    <button type="submit"
+        class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg font-bold shadow-lg shadow-green-900/20 transition-all hover:-translate-y-0.5 mt-2">
+        Add Subject
+    </button>
+    </form>
+</div>
+
+<!-- Existing Subjects Table -->
+<div class="card p-0 overflow-hidden border-t-4 border-t-blue-500 col-span-2">
+    <div class="p-6 border-b border-[#2d2d2d] bg-[#1a1a1a]">
+        <h3 class="text-xl font-bold flex items-center gap-2">
+            <i class="fas fa-book text-blue-500"></i> Existing Subjects
+        </h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr>
+                    <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Name</th>
+                    <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Code</th>
+                    <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Type</th>
+                    <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Sem</th>
+                    <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d]">Reg</th>
+                    <th class="p-4 bg-[#1f1f1f] text-gray-400 font-semibold border-b border-[#2d2d2d] text-right w-24">
+                        Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if subjects %}
+                {% for sub in subjects %}
+                <tr class="hover:bg-white/5 transition-colors border-b border-[#2d2d2d] last:border-0">
+                    <td class="p-4 font-bold text-white">
+                        {{ sub.name }}
+                        <div class="text-xs text-gray-500 font-normal mt-1">Cr: {{ sub.credits }}</div>
+                    </td>
+                    <td class="p-4 font-mono text-gray-400 text-sm">{{ sub.code or '-' }}</td>
+                    <td class="p-4 text-gray-300">
+                        <span
+                            class="px-2 py-1 rounded bg-[#252525] [.light-mode_&]:bg-gray-100 text-xs border border-[#333] [.light-mode_&]:border-gray-300 text-white [.light-mode_&]:text-gray-700">{{
+                            sub.subject_type }}</span>
+                    </td>
+                    <td class="p-4 text-gray-300">{{ sub.semester or '-' }}</td>
+                    <td class="p-4 text-gray-300 text-sm">{{ sub.regulation or '-' }}</td>
+                    <td class="p-4 flex justify-end space-x-2">
+                        <button type="button" data-id="{{ sub.id }}" data-name="{{ sub.name }}"
+                            data-code="{{ sub.code or '' }}" data-credits="{{ sub.credits }}"
+                            data-semester="{{ sub.semester or '' }}" data-regulation="{{ sub.regulation or '' }}"
+                            data-type="{{ sub.subject_type or 'Theory' }}" data-batch="{{ sub.batch_id or '' }}"
+                            onclick="openEditModal(this)"
+                            class="w-8 h-8 rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 flex items-center justify-center transition-colors">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <form action="{{ url_for('academic.delete_subject', id=sub.id) }}" method="POST"
+                            onsubmit="return confirm('Delete this subject?');" class="inline">
+                            <button type="submit"
+                                class="w-8 h-8 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 flex items-center justify-center transition-colors">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="6" class="p-8 text-center text-gray-500">No subjects added yet.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div
+        class="bg-[#1a1a1a] p-6 rounded-2xl border border-[#2d2d2d] w-full max-w-lg shadow-2xl transform transition-all">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fas fa-edit text-blue-500"></i> Edit Subject
+        </h3>
+        <form action="{{ url_for('academic.subjects') }}" method="POST" class="flex flex-col gap-4">
+            <input type="hidden" name="subject_id" id="edit_subject_id">
+
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Subject Name <span
+                        class="text-red-500">*</span></label>
+                <input type="text" name="name" id="edit_name" required
+                    class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Subject Code</label>
+                    <input type="text" name="code" id="edit_code"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Regulation</label>
+                    <input type="text" name="regulation" id="edit_regulation"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Subject Type</label>
+                    <select name="subject_type" id="edit_type"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <option value="Theory">Theory</option>
+                        <option value="Laboratory">Laboratory</option>
+                        <option value="Practicals">Practicals</option>
+                        <option value="Internals">Internals</option>
+                        <option value="Integrated">Integrated</option>
+                        <option value="Library">Library</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Batch <span
+                            class="text-red-500">*</span></label>
+                    <select name="batch_id" id="edit_batch" required
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <option value="">Select Batch</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.id }}">{{ batch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Credits</label>
+                    <input type="number" name="credits" id="edit_credits" min="0" step="0.5"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Semester</label>
+                    <input type="number" name="semester" id="edit_semester" min="1" max="8"
+                        class="w-full p-3 bg-[#141414] border border-[#2d2d2d] rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-2">
+                <button type="button" onclick="closeEditModal()"
+                    class="flex-1 px-4 py-3 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-gray-300 rounded-lg transition-colors border border-[#333]">Cancel</button>
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5">Update
+                    Subject</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditModal(btn) {
+        const d = btn.dataset;
+        document.getElementById('edit_subject_id').value = d.id;
+        document.getElementById('edit_name').value = d.name;
+        document.getElementById('edit_code').value = d.code;
+        document.getElementById('edit_credits').value = d.credits;
+        document.getElementById('edit_semester').value = d.semester;
+        document.getElementById('edit_regulation').value = d.regulation;
+        document.getElementById('edit_type').value = d.type;
+        document.getElementById('edit_batch').value = d.batch;
+
+        const modal = document.getElementById('editModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeEditModal() {
+        const modal = document.getElementById('editModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // Close on escape
+    document.addEventListener('keydown', function (event) {
+        if (event.key === "Escape") {
+            closeEditModal();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Bulk Enrollment - ADHIYAMAAN Attendance System</title>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      background-color: #0f0f0f;
+      color: white;
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-6">
+
+  <div class="bg-[#1a1a1a] rounded-xl shadow-2xl border border-gray-800 p-8 w-full max-w-2xl">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">Bulk Enrollment via CSV</h1>
+      <a href="{{ url_for('admin_user_management') }}" class="text-gray-400 hover:text-white">
+        <i class="fas fa-times text-xl"></i>
+      </a>
+    </div>
+
+    <div class="bg-blue-900/20 border border-blue-800 p-4 rounded-lg mb-6 text-sm text-blue-200">
+      <p class="font-bold mb-2"><i class="fas fa-info-circle mr-2"></i>CSV Format Requirements:</p>
+      <ul class="list-disc pl-5 space-y-1">
+        <li>Headers: <code>full_name, roll_number, department, year</code></li>
+        <li>Optional: <code>username, password</code> (Defaults to Roll No)</li>
+        <li>Example: <code>John Doe, CS001, CSE, 1</code></li>
+      </ul>
+    </div>
+
+    <form id="uploadForm" class="space-y-6">
+      <div class="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center" id="dropZone">
+        <i class="fas fa-file-csv text-4xl text-green-500 mb-3"></i>
+        <p class="text-gray-300">Drag & Drop CSV file here or</p>
+        <input type="file" id="file" name="file" accept=".csv" class="hidden">
+        <label for="file"
+          class="mt-2 inline-block px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded cursor-pointer text-sm font-semibold">
+          Browse File
+        </label>
+        <p id="fileName" class="text-xs text-gray-500 mt-2"></p>
+      </div>
+
+      <button type="submit" id="submitBtn" disabled
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
+        Upload & Process
+      </button>
+    </form>
+
+    <!-- Status & Results -->
+    <div id="statusSection" class="hidden mt-6">
+      <!-- Loading -->
+      <div id="loading" class="hidden flex items-center justify-center space-x-2 text-blue-400">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>Processing records...</span>
+      </div>
+
+      <!-- Success Summary -->
+      <div id="summary" class="hidden">
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="bg-green-900/30 p-3 rounded text-center border border-green-800">
+            <div class="text-2xl font-bold text-green-400" id="countInserted">0</div>
+            <div class="text-xs text-gray-400">Inserted</div>
+          </div>
+          <div class="bg-yellow-900/30 p-3 rounded text-center border border-yellow-800">
+            <div class="text-2xl font-bold text-yellow-400" id="countSkipped">0</div>
+            <div class="text-xs text-gray-400">Skipped (Duplicate)</div>
+          </div>
+          <div class="bg-red-900/30 p-3 rounded text-center border border-red-800">
+            <div class="text-2xl font-bold text-red-400" id="countErrors">0</div>
+            <div class="text-xs text-gray-400">Errors</div>
+          </div>
+        </div>
+
+        <div id="errorList"
+          class="hidden bg-gray-900 p-3 rounded text-xs text-red-300 font-mono overflow-y-auto max-h-32"></div>
+
+        <div class="text-center mt-6">
+          <a href="{{ url_for('admin_user_management') }}"
+            class="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-semibold">
+            Return to User Management
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('file');
+    const fileName = document.getElementById('fileName');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('uploadForm');
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        fileName.textContent = fileInput.files[0].name;
+        submitBtn.disabled = false;
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      submitBtn.disabled = true;
+      document.getElementById('statusSection').classList.remove('hidden');
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('summary').classList.add('hidden');
+
+      try {
+        const res = await fetch("{{ url_for('bulk_enrollment_upload') }}", {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('summary').classList.remove('hidden');
+
+        if (data.success) {
+          document.getElementById('countInserted').innerText = data.inserted;
+          document.getElementById('countSkipped').innerText = data.skipped;
+          document.getElementById('countErrors').innerText = data.errors.length;
+
+          if (data.errors.length > 0) {
+            const errList = document.getElementById('errorList');
+            errList.innerHTML = data.errors.map(e => `<div>${e}</div>`).join('');
+            errList.classList.remove('hidden');
+          } else {
+            document.getElementById('errorList').classList.add('hidden');
+          }
+        } else {
+          alert('Error: ' + data.message);
+        }
+
+      } catch (err) {
+        console.error(err);
+        alert("Upload failed.");
+        document.getElementById('loading').classList.add('hidden');
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+
+</html>

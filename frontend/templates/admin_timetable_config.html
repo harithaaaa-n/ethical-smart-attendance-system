@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Timetable Config - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Timetable Configuration{% endblock %}
+{% block subheader %}Set global class timings{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+    <!-- Navigation Tabs -->
+    <div class="flex gap-4 mb-8 border-b border-[#2d2d2d] pb-1">
+        <a href="{{ url_for('admin_timetable') }}" class="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+            Manage Timetables
+        </a>
+        <a href="{{ url_for('admin_timetable_config') }}"
+            class="px-4 py-2 text-blue-400 border-b-2 border-blue-500 font-medium">
+            Global Timings
+        </a>
+    </div>
+
+    <div class="card p-8 border-t-4 border-t-purple-500">
+        <div class="mb-6">
+            <h3 class="text-xl font-bold text-white mb-2">Global Class Timings</h3>
+            <p class="text-gray-400 text-sm">
+                Define the start and end times for the 7 standard periods. These timings apply to all generated
+                timetables.
+            </p>
+        </div>
+
+        <form method="POST" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for i in range(1, 8) %}
+                {% set current = timings|selectattr("period_no", "equalto", i)|first %}
+                <div class="bg-[#141414] p-4 rounded-lg border border-[#2d2d2d]">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="font-bold text-white">Period {{ i }}</span>
+                        <i class="fas fa-clock text-gray-500"></i>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="block text-xs text-gray-500 mb-1">Start Time</label>
+                            <input type="time" name="period_{{ i }}_start" required
+                                value="{{ current.start_time if current else '' }}"
+                                class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white outline-none focus:border-blue-500 transition-colors">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs text-gray-500 mb-1">End Time</label>
+                            <input type="time" name="period_{{ i }}_end" required
+                                value="{{ current.end_time if current else '' }}"
+                                class="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white outline-none focus:border-blue-500 transition-colors">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="flex justify-end pt-4 border-t border-[#2d2d2d] mt-6">
+                <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg shadow-blue-900/20 transition-all hover:-translate-y-0.5">
+                    <i class="fas fa-save mr-2"></i> Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

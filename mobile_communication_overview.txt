@@ -1,0 +1,44 @@
+MOBILE-SERVER COMMUNICATION ARCHITECTURE OVERVIEW
+
+1. SERVER ADDRESS CONFIGURATION
+   The app connects to the backend using the local IP address of your hosting machine.
+   - Configuration File: c:\projects\attendance app\attendance app\flutter_application_1\lib\core\network\api_client.dart
+   - Target Address (Android): http://10.156.182.217:5000
+   - Target Address (iOS/Emulator): http://127.0.0.1:5000
+
+   NOTE: If your laptop's Wi-Fi IP changes, update the 'Platform.isAndroid' address in the file above.
+
+2. API ENDPOINTS (Communication Paths)
+   Paths are defined in: c:\projects\attendance app\attendance app\flutter_application_1\lib\core\utils\constants.dart
+   - Login: /api/mobile/login
+   - Profile: /api/mobile/profile
+   - Mark Attendance: /api/mobile/mark-attendance
+   - Attendance History: /api/mobile/attendance-history
+   - Timetable: /api/mobile/timetable
+   - Liveness Challenge: /api/mobile/challenge
+
+3. HOW IT WORKS (THE FLOW)
+   A. AUTHENTICATION:
+      - App sends Student ID and Password to /api/mobile/login.
+      - Server validates against Database and returns a JSON Web Token (JWT).
+      - App stores this token securely and attaches it to all future requests.
+
+   B. ATTENDANCE MARKING:
+      1. BLE SCAN: App scans for beacon 'CYBER_2'.
+      2. CHALLENGE: App requests a movement challenge (e.g., "Blink your eyes") from the server.
+      3. CAPTURE: App takes 6 consecutive frames (400ms apart) to record your movement.
+      4. UPLOAD: App sends these 6 frames + Challenge ID + Student ID to the server.
+      5. VERIFICATION: 
+         - Server checks if movement matches the challenge (Anti-Spoofing).
+         - Server matches the face against the specific Student ID (Identity Verification).
+         - Server checks if a different person is in the frame (Identity Mismatch detection).
+      6. RESPONSE: Server returns a success or failure message which the app displays.
+
+4. DATA FORMATS
+   - Regular Data: JSON (JavaScript Object Notation)
+   - Image Upload: Multipart/Form-Data (Streaming byte data)
+
+5. RELEVANT SOURCE FILES
+   - Mobile Logic (Backend): c:\projects\attendance app\attendance app\backend\mobile_routes.py
+   - Network Logic (App): c:\projects\attendance app\attendance app\flutter_application_1\lib\core\network\api_client.dart
+   - Biometric AI (Backend): c:\projects\attendance app\attendance app\backend\biometric_logic.py

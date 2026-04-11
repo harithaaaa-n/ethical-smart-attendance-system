@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Report - {{ session_info.subject }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Header Section -->
+        <div class="bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-2xl p-6 mb-6 border border-purple-500/30">
+
+            {% if session_info.is_replicated %}
+            <!-- Replicated Period Audit Banner -->
+            <div
+                class="mb-6 p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="p-2 bg-blue-500 rounded-full text-white">
+                        <i class="fas fa-copy text-lg"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-blue-400 font-bold text-lg">Replicated Session (Logged)</h3>
+                        <p class="text-gray-300 text-sm">Attendance data for this session was replicated from another
+                            period.</p>
+                    </div>
+                </div>
+                <div
+                    class="md:text-right border-t md:border-t-0 md:border-l border-blue-500/30 pt-4 md:pt-0 md:pl-6 w-full md:w-auto">
+                    <p class="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Audit Details</p>
+                    <div class="space-y-1">
+                        <p class="text-white text-sm"><span class="text-blue-400/70">Source:</span> Period {{
+                            session_info.replicated_from }}</p>
+                        <p class="text-white text-sm"><span class="text-blue-400/70">Method:</span> Bulk Replication</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-2">📊 Attendance Report</h1>
+                    <p class="text-gray-300">{{ session_info.subject }}</p>
+                </div>
+                <a href="{{ url_for('class_photo_attendance_page') }}"
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors">
+                    ← Back
+                </a>
+            </div>
+
+            <!-- Session Metadata -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                <div class="bg-gray-400 rounded-lg p-3 border border-gray-500">
+                    <p class="text-gray-700 text-sm font-medium">Department</p>
+                    <p class="text-gray-900 font-bold">{{ session_info.department }}</p>
+                </div>
+                <div class="bg-gray-400 rounded-lg p-3 border border-gray-500">
+                    <p class="text-gray-700 text-sm font-medium">Year & Semester</p>
+                    <p class="text-gray-900 font-bold">Year {{ session_info.year }}, Sem {{ session_info.semester or
+                        'N/A' }}</p>
+                </div>
+                <div class="bg-gray-400 rounded-lg p-3 border border-gray-500">
+                    <p class="text-gray-700 text-sm font-medium">Batch</p>
+                    <p class="text-gray-900 font-bold">{{ session_info.batch_year or 'N/A' }}</p>
+                </div>
+                <div class="bg-gray-400 rounded-lg p-3 border border-gray-500">
+                    <p class="text-gray-700 text-sm font-medium">Date</p>
+                    <p class="text-gray-900 font-bold">{{ report_date }}</p>
+                </div>
+            </div>
+
+            {% if period_no or period %}
+            <div class="mt-4 bg-gray-400 rounded-lg p-3 inline-block border border-gray-500">
+                <p class="text-gray-700 text-sm font-medium">Period</p>
+                <p class="text-gray-900 font-bold">
+                    {% if period_no %}
+                    Period {{ period_no }}
+                    {% else %}
+                    {{ period }}
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+
+            <div class="mt-4 bg-gray-400 rounded-lg p-3 inline-block ml-4 border border-gray-500">
+                <p class="text-gray-700 text-sm font-medium">Marked By</p>
+                <p class="text-gray-900 font-bold">{{ marked_by }}</p>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-200 border border-blue-400 rounded-lg p-4">
+                <p class="text-blue-900 text-sm font-bold mb-1">Total Students</p>
+                <p class="text-3xl font-extrabold text-blue-900">{{ summary.total }}</p>
+            </div>
+            <div class="bg-green-200 border border-green-400 rounded-lg p-4">
+                <p class="text-green-900 text-sm font-bold mb-1">✅ Present</p>
+                <p class="text-3xl font-extrabold text-green-900">{{ summary.present }}</p>
+            </div>
+            <div class="bg-red-200 border border-red-400 rounded-lg p-4">
+                <p class="text-red-900 text-sm font-bold mb-1">❌ Absent</p>
+                <p class="text-3xl font-extrabold text-red-900">{{ summary.absent }}</p>
+            </div>
+            <div class="bg-orange-200 border border-orange-400 rounded-lg p-4">
+                <p class="text-orange-900 text-sm font-bold mb-1">🟡 OD</p>
+                <p class="text-3xl font-extrabold text-orange-900">{{ summary.od }}</p>
+            </div>
+        </div>
+
+        <!-- Export Buttons -->
+        <div class="bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl p-4 mb-6 border border-purple-500/30">
+            <p class="text-gray-300 mb-3 font-semibold">📤 Export Report</p>
+            <div class="flex flex-wrap gap-3">
+                <button onclick="exportPDF()"
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    Export as PDF
+                </button>
+                <button onclick="exportExcel()"
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    Export as Excel
+                </button>
+                <button onclick="exportCSV()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    Export as CSV
+                </button>
+                <button onclick="window.print()"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z">
+                        </path>
+                    </svg>
+                    Print
+                </button>
+
+                {% if not session_info.is_finalized %}
+                <button id="finalizeBtn" onclick="finalizeAttendance()"
+                    class="px-6 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-white font-bold transition-all flex items-center gap-2 shadow-lg shadow-orange-900/40 animate-pulse hover:animate-none">
+                    <i class="fas fa-lock"></i>
+                    Save Attendance
+                </button>
+                {% else %}
+                <div class="px-6 py-2 bg-gray-700/50 rounded-lg text-green-400 font-bold border border-green-500/30 flex items-center gap-2">
+                    <i class="fas fa-check-double"></i>
+                    Finalized (Saved)
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Student Table -->
+        <div class="bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-2xl overflow-hidden border border-purple-500/30">
+            <div class="overflow-x-auto">
+                <table id="attendanceTable" class="w-full">
+                    <thead class="bg-purple-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-sm font-bold text-purple-900">Roll Number</th>
+                            <th class="px-4 py-3 text-left text-sm font-bold text-purple-900">Student Name</th>
+                            <th class="px-4 py-3 text-center text-sm font-bold text-purple-900">Status</th>
+                            {% if source != 'live' %}
+                            <th class="px-4 py-3 text-center text-sm font-bold text-purple-900">Proof</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        {% if students %}
+                        {% for student in students %}
+                        <tr class="hover:bg-gray-700/30 transition-colors">
+                            <td class="px-4 py-3 text-sm text-gray-300 font-mono">{{ student.roll_number }}</td>
+                            <td class="px-4 py-3 text-sm text-white">{{ student.full_name }}</td>
+                            <td class="px-4 py-3 text-center">
+                                {% if student.status == 'Present' %}
+                                <span
+                                    class="px-3 py-1 bg-green-600/80 border border-green-400 text-white rounded-full text-xs font-semibold">
+                                    ✅ Present
+                                </span>
+                                {% elif student.status == 'OD' %}
+                                <span
+                                    class="px-3 py-1 bg-orange-600/80 border border-orange-400 text-white rounded-full text-xs font-semibold">
+                                    🟡 OD
+                                </span>
+                                {% else %}
+                                <span
+                                    class="px-3 py-1 bg-red-600/80 border border-red-400 text-white rounded-full text-xs font-semibold">
+                                    ❌ Absent
+                                </span>
+                                {% endif %}
+                            </td>
+                            {% if source != 'live' %}
+                            <td class="px-4 py-3 text-center">
+                                {% if student.proof_path %}
+                                <img src="{{ url_for('serve_proof_by_path', path=student.proof_path) }}" alt="Proof"
+                                    class="h-12 w-12 rounded object-cover border border-gray-600 mx-auto cursor-pointer hover:scale-150 transition-transform"
+                                    onclick="showProofModal(this.src)">
+                                {% else %}
+                                <span class="text-gray-500 text-xs">No proof</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-400">
+                                No students found for this class
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Proof Image Modal -->
+<div id="proofModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50"
+    onclick="closeProofModal()">
+    <div class="max-w-4xl max-h-screen p-4">
+        <img id="proofModalImg" src="" alt="Proof" class="max-w-full max-h-screen rounded-lg shadow-2xl">
+    </div>
+</div>
+
+<script>
+    const isLiveSource = "{{ source }}" === "live";
+
+    function showProofModal(src) {
+        document.getElementById('proofModal').classList.remove('hidden');
+        document.getElementById('proofModal').classList.add('flex');
+        document.getElementById('proofModalImg').src = src;
+    }
+
+    function closeProofModal() {
+        document.getElementById('proofModal').classList.add('hidden');
+        document.getElementById('proofModal').classList.remove('flex');
+    }
+
+    function exportPDF() {
+        window.print();
+    }
+
+    function exportExcel() {
+        const table = document.getElementById('attendanceTable');
+        const rows = table.querySelectorAll('tr');
+
+        let excelContent = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <!--[if gte mso 9]>
+                <xml>
+                    <x:ExcelWorkbook>
+                        <x:ExcelWorksheets>
+                            <x:ExcelWorksheet>
+                                <x:Name>Attendance Report</x:Name>
+                                <x:WorksheetOptions>
+                                    <x:DisplayGridlines/>
+                                </x:WorksheetOptions>
+                            </x:ExcelWorksheet>
+                        </x:ExcelWorksheets>
+                    </x:ExcelWorkbook>
+                </xml>
+                <![endif]-->
+                <style>
+                    td, th { border: 1px solid black; padding: 5px; }
+                    .header-row { background-color: #f3f4f6; font-weight: bold; }
+                    .summary-row { background-color: #ebf5ff; font-weight: bold; }
+                    .text-fmt { mso-number-format:"\\@"; } /* Force text format */
+                </style>
+            </head>
+            <body>
+                <table>
+                    <thead>
+                        <tr><th colspan="4" style="font-size: 18pt;">Attendance Report</th></tr>
+                        <tr><th colspan="4" style="font-size: 14pt;">{{ session_info.subject }}</th></tr>
+                        <tr></tr>
+                        <tr class="header-row">
+                            <th>Department</th><td>{{ session_info.department }}</td>
+                            <th>Year & Semester</th><td>Year {{ session_info.year }}, Sem {{ session_info.semester or 'N/A' }}</td>
+                        </tr>
+                        <tr class="header-row">
+                            <th>Batch</th><td>{{ session_info.batch_year or 'N/A' }}</td>
+                            <th>Date</th><td>{{ report_date }}</td>
+                        </tr>
+                        <tr class="header-row">
+                            <th>Period</th><td>{{ period or 'N/A' }}</td>
+                            <th>Marked By</th><td>{{ marked_by }}</td>
+                        </tr>
+                        <tr></tr>
+                        <tr class="summary-row">
+                            <th>Total Students</th><td>{{ summary.total }}</td>
+                            <th>Present</th><td>{{ summary.present }}</td>
+                        </tr>
+                        <tr class="summary-row">
+                            <th>Absent</th><td>{{ summary.absent }}</td>
+                            <th>OD</th><td>{{ summary.od }}</td>
+                        </tr>
+                        <tr></tr>
+                        <tr class="header-row">
+                            <th>Roll Number</th>
+                            <th>Student Name</th>
+                            <th>Status</th>
+                            {% if source != 'live' %}
+                            <th>Proof</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        // Process data rows
+        const dataRows = table.querySelectorAll('tbody tr');
+        dataRows.forEach(row => {
+            const cols = row.querySelectorAll('td');
+            if (cols.length > 0) {
+                const roll = cols[0].textContent.trim();
+                const name = cols[1].textContent.trim();
+                // Clean status (remove emojis)
+                const status = cols[2].textContent.trim().replace(/[✅❌🟡]/g, '').trim();
+
+                let rowHtml = `
+                    <tr>
+                        <td class="text-fmt">${roll}</td>
+                        <td>${name}</td>
+                        <td>${status}</td>`;
+
+                if (!isLiveSource) {
+                    // Clean proof (Yes/No)
+                    const proof = cols[3].querySelector('img') ? 'Yes' : 'No';
+                    rowHtml += `<td>${proof}</td>`;
+                }
+
+                rowHtml += `</tr>`;
+                excelContent += rowHtml;
+            }
+        });
+
+        excelContent += `
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `attendance_report_{{ session_info.subject }}_{{ report_date }}.xls`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function exportCSV() {
+        const table = document.getElementById('attendanceTable');
+        let csv = [];
+
+        // Add Metadata
+        csv.push(`Attendance Report: {{ session_info.subject }}`);
+        csv.push(`Department,{{ session_info.department }},Year & Semester,"Year {{ session_info.year }}, Sem {{ session_info.semester or 'N/A' }}"`);
+        csv.push(`Batch,{{ session_info.batch_year or 'N/A' }},Date,{{ report_date }}`);
+        csv.push(`Period,{{ period or 'N/A' }},Marked By,{{ marked_by }}`);
+        csv.push("");
+
+        // Add Summary
+        csv.push(`Summary`);
+        csv.push(`Total Students,{{ summary.total }},Present,{{ summary.present }}`);
+        csv.push(`Absent,{{ summary.absent }},OD,{{ summary.od }}`);
+        csv.push("");
+
+        // Add Table headers
+        const headerRow = table.querySelectorAll('thead th');
+        const headers = Array.from(headerRow).map(th => th.textContent.trim());
+        csv.push(headers.join(','));
+
+        // Add rows
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const cols = Array.from(row.querySelectorAll('td'));
+            if (cols.length > 0) {
+                const rowData = [
+                    cols[0].textContent.trim(), // Roll Number
+                    `"${cols[1].textContent.trim()}"`, // Name (quoted for CSV)
+                    cols[2].textContent.trim().replace(/[✅❌🟡]/g, '').trim() // Status (remove emojis)
+                ];
+                if (!isLiveSource) {
+                    const proof = cols[3].querySelector('img') ? 'Yes' : 'No';
+                    rowData.push(proof); // Proof
+                }
+                csv.push(rowData.join(','));
+            }
+        });
+
+        const csvContent = csv.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `attendance_report_{{ session_info.subject }}_{{ report_date }}.csv`;
+        link.click();
+    }
+    async function finalizeAttendance() {
+        if (!confirm("Are you sure you want to save and finalize this attendance? This will lock the records for official records.")) return;
+
+        const btn = document.getElementById('finalizeBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+        try {
+            const response = await fetch("/api/attendance/finalize_session", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subject: "{{ session_info.subject }}",
+                    date: "{{ report_date }}",
+                    period_no: "{{ period_no }}"
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert("Attendance saved and finalized successfully!");
+                location.reload();
+            } else {
+                alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-lock"></i> Save Attendance';
+            }
+        } catch (error) {
+            console.error(error);
+            alert("An error occurred while saving attendance.");
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-lock"></i> Save Attendance';
+        }
+    }
+</script>
+
+<style>
+    @media print {
+
+        /* Clean white background */
+        .no-print {
+            display: none !important;
+        }
+
+        body {
+            background: white !important;
+            color: black !important;
+        }
+
+        /* Hide navigation and buttons */
+        nav,
+        button,
+        #proofModal {
+            display: none !important;
+        }
+
+        /* Remove dark backgrounds */
+        .bg-gray-800\/50,
+        .bg-gray-700\/50,
+        .backdrop-blur-sm,
+        .shadow-2xl,
+        .overflow-hidden,
+        .overflow-x-auto {
+            background: white !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+            position: static !important;
+        }
+
+        /* Essential print reset */
+        html,
+        body,
+        .container,
+        main,
+        #main-content {
+            background: white !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+        }
+
+        /* Container for table needs to be full width/height */
+        .rounded-lg.shadow-2xl.overflow-hidden {
+            border: 1px solid #ccc !important;
+            margin-top: 20pt !important;
+            display: block !important;
+        }
+
+        /* Header styling */
+        h1 {
+            color: black !important;
+            font-size: 24pt !important;
+        }
+
+        /* Session info cards */
+        .grid>div {
+            background: #f3f4f6 !important;
+            border: 1px solid #d1d5db !important;
+        }
+
+        .grid>div p {
+            color: black !important;
+        }
+
+        /* Summary cards */
+        .bg-blue-600,
+        .bg-green-600,
+        .bg-red-600,
+        .bg-orange-600 {
+            background: white !important;
+            border: 2px solid black !important;
+        }
+
+        /* Table styling */
+        table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+            page-break-inside: auto !important;
+            /* Allow table to split across pages */
+        }
+
+        thead {
+            background: #e5e7eb !important;
+            display: table-header-group !important;
+            /* Repeat header on every page */
+        }
+
+        thead th {
+            background: #e5e7eb !important;
+            color: black !important;
+            border: 1px solid black !important;
+            padding: 8pt !important;
+        }
+
+        tbody {
+            display: table-row-group !important;
+        }
+
+        tbody tr {
+            page-break-inside: avoid !important;
+            /* Prevent rows from splitting */
+            break-inside: avoid !important;
+            page-break-after: auto !important;
+            border: 1px solid #d1d5db !important;
+        }
+
+        tbody td {
+            color: black !important;
+            border: 1px solid #d1d5db !important;
+            padding: 6pt !important;
+            page-break-inside: avoid !important;
+            /* Prevent cells from splitting */
+            break-inside: avoid !important;
+        }
+
+        /* Status badges */
+        .rounded-full {
+            background: white !important;
+            border: 1px solid black !important;
+            color: black !important;
+        }
+
+        /* Proof images */
+        tbody img {
+            max-width: 40pt !important;
+            max-height: 40pt !important;
+        }
+
+        /* Force color printing */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+    }
+</style>
+
+{% endblock %}

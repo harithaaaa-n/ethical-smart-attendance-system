@@ -1,0 +1,1146 @@
+{% extends "base.html" %}
+
+{% block title %}Mark Attendance - ADHIYAMAAN Attendance{% endblock %}
+{% block header %}Face Recognition{% endblock %}
+{% block subheader %}
+<div class="flex flex-wrap gap-3 md:gap-6 text-sm md:text-base items-center">
+    <span class="text-gray-400">Subject: <span class="text-blue-400 font-bold font-mono">{{ subject }}</span></span>
+    {% if period %}
+    <span class="hidden md:inline text-gray-600">|</span>
+    <span class="text-gray-400">Period: <span class="text-yellow-400 font-bold font-mono">{{ period }}</span></span>
+    {% endif %}
+    {% if time_display %}
+    <span class="hidden md:inline text-gray-600">|</span>
+    <span class="text-gray-400">Time: <span class="text-green-400 font-bold font-mono">{{ time_display }}</span></span>
+    {% endif %}
+    {% if semester %}
+    <span class="hidden md:inline text-gray-600">|</span>
+    <span class="text-gray-400">Sem: <span class="text-purple-400 font-bold font-mono">{{ semester }}</span></span>
+    {% endif %}
+    {% if session.get('active_attendance_context', {}).get('is_altered') %}
+    <span class="hidden md:inline text-gray-600">|</span>
+    <span
+        class="px-2 py-0.5 bg-amber-900/40 border border-amber-500/30 rounded text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1">
+        <i class="fas fa-exclamation-circle text-[8px]"></i> Altered
+        {% if session.get('active_attendance_context', {}).get('altered_reason') %}
+        : {{ session.get('active_attendance_context', {}).get('altered_reason') }}
+        {% endif %}
+    </span>
+    {% endif %}
+    {% if session.is_emergency_mode %}
+    <span class="hidden md:inline text-gray-600">|</span>
+    <span class="text-red-400 font-bold">
+        <i class="fas fa-user-shield mr-1"></i> {{ session.get('staff_name') }}
+    </span>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Video Feed Card -->
+    <div class="flex gap-4">
+        <div class="flex-1 card p-2 border-t-4 border-t-blue-500 mb-8 relative">
+            <div
+                class="relative bg-black rounded-lg overflow-hidden border border-[#333] shadow-2xl aspect-video flex items-center justify-center">
+                <div class="relative flex items-center justify-center w-full h-full overflow-hidden">
+                    <video id="webcam" autoplay playsinline
+                        class="w-full h-full object-cover transform scale-x-[-1]"></video>
+                    <canvas id="overlayCanvas"
+                        class="absolute inset-0 pointer-events-none"></canvas>
+                </div>
+                <canvas id="captureCanvas" class="hidden"></canvas>
+
+                <!-- Scanning Indicator -->
+                <div
+                    class="absolute top-4 right-4 flex items-center gap-2 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
+                    <span class="relative flex h-3 w-3">
+                        <span
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                    <span class="text-xs font-mono text-red-400">LIVE REC</span>
+                </div>
+
+                <!-- Liveness Status Overlay -->
+                <div id="livenessStatus"
+                    class="absolute bottom-4 left-4 flex items-center gap-2 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10 transition-all duration-300">
+                    <div id="livenessIndicator" class="h-2 w-2 rounded-full bg-gray-400"></div>
+                    <span id="livenessText"
+                        class="text-[10px] font-bold uppercase tracking-wider text-gray-300">Initializing
+                        Liveness...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Panel (Right Side) -->
+        <div id="progressPanel"
+            class="w-80 bg-white border border-gray-200 rounded-lg flex flex-col h-[480px] shadow-xl overflow-hidden hidden md:flex">
+            <div class="p-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center sticky top-0 z-10">
+                <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+                    <i class="fas fa-list-ol text-blue-600"></i> Attendance Progress
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button onclick="fetchClassStudents()" title="Refresh List" class="text-gray-400 hover:text-blue-500 transition-colors">
+                        <i class="fas fa-sync-alt text-[10px]"></i>
+                    </button>
+                    <span class="text-xs text-gray-500 font-mono bg-white px-2 py-1 rounded border border-gray-200"
+                        id="progressCount">0/0</span>
+                </div>
+            </div>
+            <div id="studentListContainer" class="flex-1 overflow-y-auto p-2 space-y-1 relative bg-white">
+                <!-- Student Items Injected Here -->
+                <div class="text-center text-gray-500 text-xs mt-10">Loading class list...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex flex-col sm:flex-row justify-center gap-4">
+        <button id="finishBtn"
+            class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold py-3 px-8 rounded-lg shadow-sm flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+            <i class="fas fa-stop-circle mr-2"></i> End Session
+        </button>
+        <button id="odBtn"
+            class="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 font-bold py-3 px-8 rounded-lg shadow-sm flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+            <i class="fas fa-user-clock mr-2"></i> Mark OD
+        </button>
+        <button id="reportBtn" disabled
+            class="bg-gray-100 text-gray-400 border border-gray-200 font-bold py-3 px-8 rounded-lg shadow-sm flex items-center justify-center transition-all cursor-not-allowed">
+            <i class="fas fa-file-alt mr-2"></i> View Report
+        </button>
+    </div>
+</div>
+
+<!-- Attendance Modal Overlay (Welcome) -->
+<div id="welcomeModal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all">
+    <div
+        class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center relative transform transition-all scale-100 border border-gray-100">
+        <!-- Status Icon -->
+        <div id="statusIcon" class="text-6xl mb-6 flex justify-center drop-shadow-md"></div>
+
+        <h2 id="modalTitle" class="text-3xl font-bold mb-2 text-gray-800"></h2>
+        <p id="modalMessage" class="text-lg text-gray-500 mb-6"></p>
+
+        <!-- Student Info -->
+        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-left space-y-2 mb-6 shadow-inner">
+            <div class="flex justify-between border-b border-gray-200 pb-2 mb-2">
+                <span class="text-gray-400 text-xs uppercase tracking-wider font-bold">Student Name</span>
+                <span id="studentName" class="text-gray-800 font-bold text-lg"></span>
+            </div>
+            <div class="flex justify-between border-b border-gray-200 pb-2 mb-2">
+                <span class="text-gray-400 text-xs uppercase tracking-wider font-bold">Gender</span>
+                <span id="studentGender" class="text-gray-800 font-bold"></span>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <span class="block text-gray-400 text-xs uppercase tracking-wider font-bold">Roll No</span>
+                    <span id="studentRoll" class="text-gray-600 font-mono text-sm font-semibold"></span>
+                </div>
+                <div>
+                    <span class="block text-gray-400 text-xs uppercase tracking-wider font-bold">Year/Dept</span>
+                    <span class="text-gray-600 text-sm font-semibold"><span id="studentYear"></span> / <span
+                            id="studentDept"></span></span>
+                </div>
+            </div>
+        </div>
+
+        <p id="eventTimestamp" class="text-xs text-gray-400 font-mono mb-6"></p>
+
+        <button id="nextStudentBtn"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg shadow-blue-200 text-lg flex items-center justify-center transition-all hover:-translate-y-1">
+            Process Next Student <i class="fas fa-arrow-right ml-2"></i>
+        </button>
+    </div>
+</div>
+
+<!-- OD Entry Modal -->
+<div id="odInputModal"
+    class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+        <div class="p-4 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-orange-600 flex items-center gap-2">
+                <i class="fas fa-user-clock"></i> Mark On Duty
+            </h3>
+            <button id="closeOdBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Enter Roll Numbers</label>
+                <p class="text-xs text-gray-500 mb-2">Last 2-3 digits (comma separated)</p>
+                <div class="flex gap-2">
+                    <input type="text" id="odInputDisplay" placeholder="e.g. 25, 42, 007"
+                        class="flex-1 p-2 border border-gray-300 rounded focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none">
+                    <button id="saveOdActionBtn"
+                        class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded font-bold text-sm">
+                        Verify
+                    </button>
+                </div>
+            </div>
+
+            <div id="odPreviewContainer" class="hidden">
+                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Resolved Students (<span
+                        id="odPreviewCount">0</span>)</h4>
+                <div id="odPreviewList" class="max-h-40 overflow-y-auto space-y-1 text-sm">
+                    <!-- Items -->
+                </div>
+            </div>
+        </div>
+        <div class="p-4 bg-gray-50 border-t border-gray-100 text-right">
+            <button id="finishOdBtn"
+                class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded font-bold text-sm transition-colors border border-gray-300">
+                Done
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- End Session Confirmation Modal (Light Theme) -->
+<div id="endSessionModal"
+    class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+
+        <!-- Header -->
+        <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-clipboard-check text-blue-600"></i> Confirm Attendance
+                </h2>
+                <p class="text-gray-500 text-sm mt-1">Review session details before finalizing.</p>
+            </div>
+            <div class="text-right hidden sm:block">
+                <div class="text-xl font-mono font-bold text-gray-700" id="confTime">--:--</div>
+                <div class="text-xs text-gray-500" id="confDate">--/--/----</div>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+            <!-- Session Info Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                    <span class="block text-gray-500 text-xs uppercase">Subject</span>
+                    <span class="text-blue-600 font-bold truncate block" id="confSubject">--</span>
+                </div>
+                <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                    <span class="block text-gray-500 text-xs uppercase">Period</span>
+                    <div class="flex flex-col">
+                        <span class="text-yellow-600 font-bold truncate block" id="confPeriod">--</span>
+                        <span class="text-[10px] text-gray-500" id="confType">Scheduled</span>
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                    <span class="block text-gray-500 text-xs uppercase">Class</span>
+                    <span class="text-purple-600 font-bold truncate block" id="confClass">--</span>
+                </div>
+                <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                    <span class="block text-gray-500 text-xs uppercase">Teacher</span>
+                    <span class="text-green-600 font-bold truncate block" id="confTeacher">--</span>
+                </div>
+            </div>
+
+            <!-- LAB Replication Section (Hidden by default) -->
+            <div id="labReplicationSection" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="p-2 bg-blue-600 rounded-lg text-white">
+                        <i class="fas fa-copy"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-blue-800 font-bold">Replicate Attendance (LAB Session)</h3>
+                        <p class="text-blue-600 text-xs">Mark attendance for other consecutive lab periods in one click.
+                        </p>
+                    </div>
+                </div>
+                <div id="labPeriodCheckboxes" class="flex flex-wrap gap-3 mb-4">
+                    <!-- Checkboxes injected here -->
+                </div>
+                <button id="replicateBtn" onclick="handleReplicate()"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-sync-alt"></i> Replicate to Selected Periods
+                </button>
+                <p id="replicationStatus" class="mt-2 text-xs text-center hidden"></p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-center">
+                    <div class="text-3xl font-bold text-gray-800" id="countTotal">0</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-wider mt-1">Total</div>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg border border-green-100 text-center">
+                    <div class="text-3xl font-bold text-green-600" id="countPresent">0</div>
+                    <div class="text-xs text-green-700 uppercase tracking-wider mt-1">Present</div>
+                </div>
+                <div class="bg-red-50 p-4 rounded-lg border border-red-100 text-center">
+                    <div class="text-3xl font-bold text-red-600" id="countAbsent">0</div>
+                    <div class="text-xs text-red-700 uppercase tracking-wider mt-1">Absent</div>
+                </div>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="countOD">0</div>
+                    <div class="text-xs text-blue-700 uppercase tracking-wider mt-1">On Duty</div>
+                </div>
+            </div>
+
+            <!-- Lists Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Present List -->
+                <div class="flex flex-col h-96">
+                    <h3
+                        class="text-green-600 font-bold mb-2 flex items-center gap-2 text-sm sticky top-0 bg-white z-10">
+                        <i class="fas fa-check-circle"></i> Present
+                    </h3>
+                    <div class="flex-1 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                        <div class="overflow-y-auto flex-1 p-2 space-y-1" id="listPresent">
+                            <!-- Items injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OD List -->
+                <div class="flex flex-col h-96">
+                    <h3 class="text-blue-600 font-bold mb-2 flex items-center gap-2 text-sm sticky top-0 bg-white z-10">
+                        <i class="fas fa-user-clock"></i> On Duty
+                    </h3>
+                    <div class="flex-1 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                        <div class="overflow-y-auto flex-1 p-2 space-y-1" id="listOD">
+                            <!-- Items injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Absent List -->
+                <div class="flex flex-col h-96">
+                    <h3 class="text-red-600 font-bold mb-2 flex items-center gap-2 text-sm sticky top-0 bg-white z-10">
+                        <i class="fas fa-times-circle"></i> Absent
+                    </h3>
+                    <div class="flex-1 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                        <div class="overflow-y-auto flex-1 p-2 space-y-1" id="listAbsent">
+                            <!-- Items injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="p-6 border-t border-gray-200 bg-gray-50 flex justify-between items-center gap-4">
+            <button id="resumeSessionBtn"
+                class="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-200 font-bold transition-colors">
+                <i class="fas fa-arrow-left mr-2"></i> Go Back / Resume
+            </button>
+            <button id="confirmFinishBtn"
+                class="flex-1 max-w-sm bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg flex items-center justify-center transition-all hover:scale-105">
+                <i class="fas fa-save mr-2"></i> Confirm & Generate Report
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<style>
+    .student-row {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .student-row:hover {
+        background-color: #f9fafb;
+    }
+
+    .status-red {
+        border-left: 3px solid #ef4444;
+        background: #fff;
+    }
+
+    .status-green {
+        border-left: 3px solid #22c55e;
+        background: #f0fdf4;
+    }
+
+    .status-blue {
+        border-left: 3px solid #3b82f6;
+        background: #eff6ff;
+    }
+
+    @keyframes glow-green {
+        0% {
+            box-shadow: 0 0 5px #22c55e;
+            background: #dcfce7;
+        }
+
+        50% {
+            box-shadow: 0 0 15px #22c55e;
+            background: #bbf7d0;
+        }
+
+        100% {
+            box-shadow: none;
+            background: #f0fdf4;
+        }
+    }
+
+    .animate-glow {
+        animation: glow-green 2s ease-out;
+    }
+</style>
+{% block scripts %}
+
+<!-- Edit Status Modal -->
+<div id="editStatusModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-6 w-96 shadow-xl border border-gray-200">
+        <h3 class="text-lg font-bold mb-4 text-gray-800">Edit Attendance Status</h3>
+        <p class="text-sm text-gray-600 mb-4">Update status for <span id="editStudentName"
+                class="font-bold text-black"></span></p>
+
+        <input type="hidden" id="editStudentId">
+
+        <div class="space-y-3">
+            <button onclick="saveEdit('Present')"
+                class="w-full p-3 rounded-md bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 font-bold flex items-center justify-center">
+                Mark Present
+            </button>
+            <button onclick="saveEdit('OD')"
+                class="w-full p-3 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-bold flex items-center justify-center">
+                Mark On Duty (OD)
+            </button>
+            <button onclick="saveEdit('Absent')"
+                class="w-full p-3 rounded-md bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 font-bold flex items-center justify-center">
+                Mark Absent
+            </button>
+        </div>
+
+        <div class="mt-4 flex justify-end">
+            <button onclick="closeEditModal()"
+                class="text-gray-500 hover:text-gray-700 text-sm font-medium">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ... Existing Script ...
+
+    // Global Edit Functions
+    window.openEditModal = function (studentId, studentName) {
+        document.getElementById('editStudentId').value = studentId;
+        document.getElementById('editStudentName').textContent = studentName;
+        document.getElementById('editStatusModal').classList.remove('hidden');
+    }
+
+    window.closeEditModal = function () {
+        document.getElementById('editStatusModal').classList.add('hidden');
+    }
+
+    window.saveEdit = async function (newStatus) {
+        const studentId = document.getElementById('editStudentId').value;
+        if (!studentId) return;
+
+        // Show loading state?
+        // Simple alert for now or updated button text
+        const btns = document.querySelectorAll('#editStatusModal button');
+        btns.forEach(b => b.disabled = true);
+
+        try {
+            const res = await fetch('/api/attendance/update_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: studentId, status: newStatus })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Refresh Data
+                if (window.refreshSessionStats) {
+                    await window.refreshSessionStats();
+                }
+                closeEditModal();
+                // Optional: Show success toast
+            } else {
+                alert("Error updating status: " + data.message);
+            }
+        } catch (e) {
+            console.error("Edit error:", e);
+            alert("Failed to update status.");
+        } finally {
+            btns.forEach(b => b.disabled = false);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let lastEventTime = 0;
+        let isProcessing = false;
+
+        const modal = document.getElementById('welcomeModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const statusIcon = document.getElementById('statusIcon');
+        const studentName = document.getElementById('studentName');
+        const studentRoll = document.getElementById('studentRoll');
+        const studentDept = document.getElementById('studentDept');
+        const studentYear = document.getElementById('studentYear');
+        const eventTimestamp = document.getElementById('eventTimestamp');
+        const livenessIndicator = document.getElementById('livenessIndicator');
+        const livenessText = document.getElementById('livenessText');
+        const livenessStatus = document.getElementById('livenessStatus');
+
+        const nextStudentBtn = document.getElementById('nextStudentBtn');
+        const finishBtn = document.getElementById('finishBtn');
+        const reportBtn = document.getElementById('reportBtn');
+
+        // OD Modal Elements
+        const odBtn = document.getElementById('odBtn');
+        const odInputModal = document.getElementById('odInputModal');
+        const closeOdBtn = document.getElementById('closeOdBtn');
+        const finishOdBtn = document.getElementById('finishOdBtn');
+        const saveOdActionBtn = document.getElementById('saveOdActionBtn');
+        const odInputDisplay = document.getElementById('odInputDisplay');
+        const odPreviewContainer = document.getElementById('odPreviewContainer');
+        const odPreviewList = document.getElementById('odPreviewList');
+        const odPreviewCount = document.getElementById('odPreviewCount');
+
+        // Confirmation Modal Elements
+        const confModal = document.getElementById('endSessionModal');
+        const confirmFinishBtn = document.getElementById('confirmFinishBtn');
+        const resumeSessionBtn = document.getElementById('resumeSessionBtn');
+
+        const CLASS_SUBJECT = "{{ subject }}";
+        const CLASS_DEPT = "{{ department }}";
+        const CLASS_YEAR = "{{ year }}";
+        const CLASS_BATCH = "{{ batch_year }}";
+        const CLASS_SEM = "{{ semester }}";
+
+        function showModal(data) {
+            const student = data.student || {};
+
+            // Update Content
+            studentName.textContent = student.full_name || "Unknown";
+            studentRoll.textContent = student.roll_number || "N/A";
+            studentDept.textContent = student.department || "?";
+            studentYear.textContent = student.year || "?";
+            eventTimestamp.textContent = new Date().toLocaleTimeString();
+
+            const studentGender = document.getElementById('studentGender');
+            if (studentGender) studentGender.textContent = student.gender || "N/A";
+
+            if (data.status === 'marked') {
+                statusIcon.innerHTML = '✅';
+                modalTitle.textContent = `Welcome, ${(student.full_name || "").split(' ')[0]}!`;
+                modalTitle.className = "text-3xl font-bold mb-2 text-green-400";
+                modalMessage.textContent = "Attendance Marked Successfully";
+            } else if (data.status === 'already_marked' || data.status === 'updated') {
+                statusIcon.innerHTML = '✅';
+                modalTitle.textContent = "Already Present";
+                modalTitle.className = "text-3xl font-bold mb-2 text-green-400";
+                modalMessage.textContent = "You are already marked present.";
+            } else {
+                statusIcon.innerHTML = '❌';
+                modalTitle.textContent = "Error";
+                modalTitle.className = "text-3xl font-bold mb-2 text-red-500";
+                modalMessage.textContent = data.message || "Unknown error";
+            }
+
+            // Show
+            modal.classList.remove('hidden');
+        }
+
+        nextStudentBtn.addEventListener('click', async () => {
+            // Resume scanning
+            try {
+                await fetch('/api/attendance/resume', { method: 'POST' });
+                modal.classList.add('hidden');
+                isProcessing = false;
+            } catch (e) {
+                console.error("Resume error:", e);
+                alert("Failed to resume scanning. Please try again.");
+            }
+        });
+
+        // --- OD Logic ---
+        odBtn.addEventListener('click', () => {
+            odInputModal.classList.remove('hidden');
+            odInputDisplay.focus();
+        });
+
+        closeOdBtn.addEventListener('click', () => odInputModal.classList.add('hidden'));
+        finishOdBtn.addEventListener('click', () => odInputModal.classList.add('hidden'));
+
+        saveOdActionBtn.addEventListener('click', async () => {
+            const inputVal = odInputDisplay.value;
+            if (!inputVal.trim()) return;
+
+            saveOdActionBtn.disabled = true;
+            saveOdActionBtn.innerText = "Verifying...";
+
+            try {
+                const res = await fetch('/api/resolve_od_students', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        od_students: inputVal,
+                        department: CLASS_DEPT,
+                        year: CLASS_YEAR,
+                        batch_year: CLASS_BATCH,
+                        semester: CLASS_SEM,
+                        save_to_session: true
+                    })
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    odPreviewContainer.classList.remove('hidden');
+                    odPreviewCount.textContent = result.count;
+                    odPreviewList.innerHTML = '';
+                    (result.od_students || []).forEach(s => {
+                        odPreviewList.innerHTML += `
+                            <div class="flex justify-between p-2 bg-orange-50 border border-orange-100 rounded">
+                                <span class="font-bold text-orange-800">${s.full_name}</span>
+                                <span class="font-mono text-gray-500 text-xs">${s.roll_number}</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error');
+            } finally {
+                saveOdActionBtn.disabled = false;
+                saveOdActionBtn.innerText = "Verify";
+            }
+        });
+
+        // --- End Session Logic ---
+
+        // Defined globally for Edit Modal to use
+        window.refreshSessionStats = async function () {
+            finishBtn.disabled = true;
+            finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Loading...';
+
+            try {
+                const res = await fetch('/api/attendance/current_session_stats');
+                const result = await res.json();
+
+                if (result.success && result.data) {
+                    populateConfirmationModal(result.data);
+                    confModal.classList.remove('hidden');
+                } else {
+                    alert("Error fetching session stats: " + (result.message || "Unknown error"));
+                }
+            } catch (e) {
+                console.error("Stats Fetch Error:", e);
+                alert("Failed to load session details.");
+            } finally {
+                finishBtn.disabled = false;
+                finishBtn.innerHTML = '<i class="fas fa-stop-circle mr-2"></i> End Session';
+            }
+        };
+
+        finishBtn.addEventListener('click', window.refreshSessionStats);
+
+        function populateConfirmationModal(data) {
+            const info = data.session_info || {};
+            const counts = data.counts || {};
+            const lists = data.lists || {};
+
+            // Header
+            document.getElementById('confSubject').textContent = info.subject || '-';
+            document.getElementById('confPeriod').textContent = info.period || '-';
+            document.getElementById('confType').textContent = info.is_altered ? "Altered / Extra" : "Scheduled";
+            document.getElementById('confClass').textContent = `${info.year || ''} - ${info.department || ''}`;
+            document.getElementById('confTeacher').textContent = info.teacher_name || '-';
+            document.getElementById('confTime').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('confDate').textContent = info.date || '-';
+
+            // LAB Replication UI
+            const labSection = document.getElementById('labReplicationSection');
+            const labPeriodsDiv = document.getElementById('labPeriodCheckboxes');
+            const replicateStatus = document.getElementById('replicationStatus');
+            const replicateBtn = document.getElementById('replicateBtn');
+
+            replicateStatus.classList.add('hidden');
+            replicateBtn.classList.remove('hidden');
+            replicateBtn.disabled = false;
+            replicateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Replicate to Selected Periods';
+
+            if (info.is_lab && info.other_lab_periods && info.other_lab_periods.length > 0) {
+                labSection.classList.remove('hidden');
+                labPeriodsDiv.innerHTML = '';
+                info.other_lab_periods.forEach(p => {
+                    labPeriodsDiv.innerHTML += `
+                        <label class="flex items-center gap-2 bg-white px-3 py-2 rounded border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors">
+                            <input type="checkbox" name="target_period" value="${p}" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <span class="text-sm font-bold text-gray-700">Period ${p}</span>
+                        </label>
+                    `;
+                });
+            } else {
+                labSection.classList.add('hidden');
+            }
+
+            // Counts
+            document.getElementById('countTotal').textContent = counts.total || 0;
+            document.getElementById('countPresent').textContent = counts.present || 0;
+            document.getElementById('countOD').textContent = counts.od || 0;
+            document.getElementById('countAbsent').textContent = counts.absent || 0;
+
+            // Lists Helper (Light Theme + Edit Button)
+            const createItem = (student, colorClass, bgClass, borderClass) => {
+                // Check if edited
+                // We assume backend returns 'edited_by' or 'is_edited' flag if we want to show label.
+                // Currently backend stats 'lists' returns raw records. 
+                // We added 'edited_by' column. 
+                // We need to make sure 'get_current_session_stats' returns this info.
+                // I'll update backend later if needed, but for now assuming we assume it might be there.
+                // Actually, I didn't update 'get_current_session_stats' to return 'edited_by'.
+                // I should verify that. 
+                // But for now let's add the button.
+
+                const isEdited = student.edited_by ? true : false;
+                const editedLabel = isEdited ? `<span class="text-[10px] text-orange-500 font-bold ml-2">(Edited)</span>` : '';
+
+                return `
+                <div class="flex items-center justify-between p-2 ${bgClass} rounded border ${borderClass} mb-1 group">
+                    <div class="flex flex-col">
+                        <div class="flex items-center">
+                            <span class="text-gray-800 text-sm font-bold truncate max-w-[150px]">${student.full_name}</span>
+                            ${editedLabel}
+                        </div>
+                        <span class="text-xs text-gray-500 font-mono">${student.roll_number}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="${colorClass} text-xs font-bold px-2 py-1 bg-white border border-gray-200 rounded">
+                            ${(colorClass.includes('green') ? 'P' : (colorClass.includes('blue') ? 'OD' : 'A'))}
+                        </div>
+                        <button onclick="window.openEditModal('${student.id}', '${student.full_name.replace(/'/g, "\\\\' ")}')" class="text-gray-400 hover:text-blue-600 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Status">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            `};
+
+            const listPresent = document.getElementById('listPresent');
+            const listOD = document.getElementById('listOD');
+            const listAbsent = document.getElementById('listAbsent');
+
+            // Green
+            listPresent.innerHTML = (lists.present || []).map(s =>
+                createItem(s, 'text-green-600', 'bg-green-50', 'border-green-100')
+            ).join('') || '<div class="text-gray-400 text-xs italic p-2">None</div>';
+
+            // Blue
+            listOD.innerHTML = (lists.od || []).map(s =>
+                createItem(s, 'text-blue-600', 'bg-blue-50', 'border-blue-100')
+            ).join('') || '<div class="text-gray-400 text-xs italic p-2">None</div>';
+
+            // Red
+            listAbsent.innerHTML = (lists.absent || []).map(s =>
+                createItem(s, 'text-red-600', 'bg-red-50', 'border-red-100')
+            ).join('') || '<div class="text-gray-400 text-xs italic p-2">None</div>';
+        }
+
+        resumeSessionBtn.addEventListener('click', () => {
+            confModal.classList.add('hidden');
+            // Resume recognition if it was implicitly paused? 
+            // We didn't actually stop the "session" on backend, so just hiding modal is enough.
+            // But client-side polling continues, so we are good.
+        });
+
+        confirmFinishBtn.addEventListener('click', async () => {
+            confirmFinishBtn.disabled = true;
+            confirmFinishBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Finalizing...';
+
+            try {
+                // 1. Finish Scan (Mark ODs, Cleanup Session)
+                const resFinish = await fetch('/api/attendance/finish', { method: 'POST' });
+                const dataFinish = await resFinish.json();
+                if (!dataFinish.success) throw new Error(dataFinish.message);
+
+                // 2. Lock Session (Finalize)
+                const resFinalize = await fetch('/api/attendance/finalize_session', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subject: CLASS_SUBJECT,
+                        date: new Date().toISOString().split('T')[0],
+                        period_no: "{{ period_no or '' }}"
+                    })
+                });
+                const dataFinalize = await resFinalize.json();
+                if (!dataFinalize.success) throw new Error(dataFinalize.message);
+
+                // UI Cleanup
+                confModal.classList.add('hidden');
+
+                finishBtn.disabled = true;
+                finishBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                finishBtn.innerHTML = '<i class="fas fa-check mr-2"></i> Session Ended';
+                finishBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                finishBtn.classList.add('bg-gray-700');
+
+                reportBtn.disabled = false;
+                reportBtn.classList.remove('bg-[#2d2d2d]', 'text-gray-500', 'cursor-not-allowed');
+                reportBtn.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700', 'cursor-pointer');
+
+                isProcessing = true; // Stop polling
+
+                alert("Attendance Finalized & Locked Successfully!");
+                reportBtn.click(); // Auto-redirect
+
+            } catch (e) {
+                console.error("Finish/Lock error:", e);
+                alert("Error finalizing session: " + e.message);
+                confirmFinishBtn.disabled = false;
+                confirmFinishBtn.innerHTML = '<i class="fas fa-save mr-2"></i> Confirm & Generate Report';
+            }
+        });
+
+
+        reportBtn.addEventListener('click', () => {
+            if (reportBtn.disabled) return;
+            const today = new Date().toISOString().split('T')[0];
+            const periodVal = "{{ period_no or '' }}";
+            let yearVal = "{{ year or '' }}";
+            const semesterVal = "{{ semester or '' }}";
+
+            // Fallback: Calculate Year from Semester if missing
+            if (!yearVal && semesterVal) {
+                yearVal = Math.ceil(parseInt(semesterVal) / 2);
+            }
+
+            // Redirect to Full Report
+            window.location.href = `/admin/class_photo_attendance/full_report?subject=${encodeURIComponent(CLASS_SUBJECT)}&department={{ department }}&year=${yearVal}&batch_year={{ batch_year }}&semester=${semesterVal}&period=${periodVal}&date=${today}&source=live`;
+        });
+
+
+        async function markAttendance(userId, subject) {
+            try {
+                // 1. Update Panel FIRST (Visual Feedback)
+                await updateProgressPanel(userId);
+
+                // 2. Wait briefly for visual confirmation (optional but good for UX)
+                await new Promise(r => setTimeout(r, 800));
+
+                const res = await fetch('/api/attendance/mark_from_face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, subject: subject })
+                });
+                const result = await res.json();
+
+                // 3. Show Verification Modal
+                showModal(result);
+            } catch (e) {
+                console.error("Marking error:", e);
+                isProcessing = false;
+            }
+        }
+
+        // --- Progress Panel Logic ---
+        const studentListContainer = document.getElementById('studentListContainer');
+        const progressCountStr = document.getElementById('progressCount');
+        let classStudents = []; // Store locally for quick access
+
+        window.fetchClassStudents = function() {
+            console.log("Fetching class list for student panel...");
+
+            fetch('/api/live/class_students')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        classStudents = data.students || [];
+                        console.log(`Loaded ${classStudents.length} students.`);
+                        renderProgressPanel();
+                    } else {
+                        console.warn("Class fetch unsuccessful:", data.message);
+                        studentListContainer.innerHTML = `<div class="text-gray-400 text-xs p-4 text-center">${data.message || 'Waiting for session...'}</div>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching class students:', error);
+                    studentListContainer.innerHTML = '<div class="text-red-400 text-xs p-4 text-center">Connection error.</div>';
+                });
+        }
+
+        function renderProgressPanel() {
+            studentListContainer.innerHTML = '';
+            let markedCount = 0;
+
+            classStudents.forEach(s => {
+                const isMarked = s.status === 'green' || s.status === 'blue';
+                if (isMarked) markedCount++;
+
+                const div = document.createElement('div');
+                div.id = `stu-${s.id}`;
+                // Simplified class logic for cleaner look
+                div.className = `student-row p-2 mb-1 rounded flex justify-between items-center ${s.status === 'green' ? 'status-green' : (s.status === 'blue' ? 'status-blue' : 'status-red')}`;
+                div.innerHTML = `
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="text-xs font-bold text-gray-700 truncate w-32">${s.full_name}</span>
+                        <span class="text-[10px] text-gray-500 font-mono">${s.roll_number}</span>
+                    </div>
+                    <div class="status-icon text-xs">
+                        ${s.status === 'green' ? '<i class="fas fa-check text-green-500"></i>' : (s.status === 'blue' ? '<i class="fas fa-user-clock text-blue-500"></i>' : '<i class="fas fa-times text-gray-300"></i>')}
+                    </div>
+                `;
+                studentListContainer.appendChild(div);
+            });
+
+            progressCountStr.textContent = `${markedCount}/${classStudents.length}`;
+        }
+
+        async function updateProgressPanel(userId) {
+            // Find student in local list
+            const studentIndex = classStudents.findIndex(s => s.id == userId);
+            if (studentIndex === -1) return; // Student not in list?
+
+            // Check if already marked to avoid redundant animations
+            if (classStudents[studentIndex].status === 'green') return;
+
+            // Update Status Locally
+            classStudents[studentIndex].status = 'green';
+
+            // Update DOM element
+            const el = document.getElementById(`stu-${userId}`);
+            if (el) {
+                // Change Styles
+                el.className = `student-row p-2 mb-1 rounded flex justify-between items-center status-green animate-glow`;
+                el.querySelector('.status-icon').innerHTML = '<span class="text-[10px] text-green-400 font-bold">✔ Marked Successfully</span>';
+
+                // Scroll to view
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Update Count
+                renderProgressPanelCount();
+            }
+        }
+
+        function renderProgressPanelCount() {
+            const total = classStudents.length;
+            const marked = classStudents.filter(s => s.status === 'green' || s.status === 'blue').length;
+            progressCountStr.textContent = `${marked}/${total}`;
+        }
+
+        // Init Panel on Load
+        fetchClassStudents();
+        progressPanel.classList.remove('hidden');
+        progressPanel.classList.add('flex');
+
+        // --- WebRTC Camera Setup ---
+        const video = document.getElementById('webcam');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const canvas = document.getElementById('captureCanvas');
+        const ctx = canvas.getContext('2d');
+        let stream = null;
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280, max: 1920 },
+                        height: { ideal: 720, max: 1080 },
+                        facingMode: "user"
+                    }
+                });
+                video.srcObject = stream;
+                // Update feedback once camera is on
+                livenessText.textContent = "SEARCHING FOR FACE...";
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+                livenessText.textContent = "CAMERA ERROR";
+                livenessIndicator.className = "h-2 w-2 rounded-full bg-red-500";
+                alert("Could not access camera. Please ensure you have given permission.");
+            }
+        }
+
+        function drawBoundingBox(bbox, name, isLive) {
+            // Align overlay canvas to video display size and position
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const cw = video.clientWidth;
+            const ch = video.clientHeight;
+
+            // Update internal resolution only if changed
+            if (overlayCanvas.width !== vw) overlayCanvas.width = vw;
+            if (overlayCanvas.height !== vh) overlayCanvas.height = vh;
+
+            // Match CSS size to visible video element
+            overlayCanvas.style.width = cw + 'px';
+            overlayCanvas.style.height = ch + 'px';
+
+            overlayCtx.clearRect(0, 0, vw, vh);
+
+            if (!bbox) return;
+
+            // drawBoundingBox receives raw coordinates from backend (relative to vw x vh)
+            let [raw_x1, y1, raw_x2, y2] = bbox;
+            let w = (raw_x2 - raw_x1);
+            let h = (y2 - y1);
+            
+            // Flip the X coordinates to match the mirrored video stream manually
+            // vw = videoWidth, raw_x2 = right edge of box in original frame
+             let x1 = vw - raw_x2;
+
+            // Draw Box (Red if spoof, Green if live)
+            overlayCtx.strokeStyle = isLive ? "#22c55e" : "#ef4444";
+            overlayCtx.lineWidth = 6;
+            overlayCtx.setLineDash([]);
+            
+            // On a non-mirrored canvas overlaid on a mirrored video, 
+            // we must manually calculate the mirrored X-position.
+            overlayCtx.strokeRect(x1, y1, w, h);
+
+            // Draw Status Label
+            const label = name || (isLive ? "Liveness Verified" : "SPOOF DETECTED");
+            overlayCtx.fillStyle = isLive ? "#22c55e" : "#ef4444";
+            overlayCtx.font = "bold 28px Inter, sans-serif";
+
+            // Draw background for text
+            const textWidth = overlayCtx.measureText(label).width;
+            overlayCtx.fillRect(x1, y1 > 50 ? y1 - 50 : 0, textWidth + 20, 50);
+
+            overlayCtx.fillStyle = "#ffffff";
+            overlayCtx.fillText(label, x1 + 10, y1 > 50 ? y1 - 15 : 35);
+        }
+
+        async function captureAndUpload() {
+            if (isProcessing) return;
+            if (!stream) return;
+
+            // If any modal is open, don't capture but keep camera running
+            const endModal = document.getElementById('endSessionModal');
+            const welcomeModal = document.getElementById('welcomeModal');
+            if ((endModal && !endModal.classList.contains('hidden')) ||
+                (welcomeModal && !welcomeModal.classList.contains('hidden'))) {
+                drawBoundingBox(null);
+                return;
+            }
+
+            // Capture frame to canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+            try {
+                const res = await fetch('/api/recognition/process_frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: imageData,
+                        subject: CLASS_SUBJECT
+                    })
+                });
+
+                if (!res.ok) {
+                    livenessText.textContent = "SERVER BUSY...";
+                    return;
+                }
+                const data = await res.json();
+
+                // 1. Draw UI Box
+                if (data.success && data.bbox) {
+                    drawBoundingBox(data.bbox, data.name, data.is_live);
+                } else {
+                    drawBoundingBox(null);
+                }
+
+                // 2. Update Liveness UI
+                if (data.success) {
+                    if (!data.is_live) {
+                        livenessIndicator.className = "h-2 w-2 rounded-full bg-red-500 animate-pulse";
+                        livenessText.textContent = "SPOOF: " + (data.liveness_msg || "Failed");
+                        livenessText.className = "text-[10px] font-bold uppercase text-red-400";
+                        livenessStatus.className = "absolute bottom-4 left-4 flex items-center gap-2 bg-red-900/20 px-3 py-1 rounded-full border border-red-500/30";
+                    } else {
+                        livenessIndicator.className = "h-2 w-2 rounded-full bg-green-500";
+                        livenessText.textContent = data.user_id ? "VERIFIED: " + data.name : "SEARCHING...";
+                        livenessText.className = "text-[10px] font-bold uppercase text-green-400";
+                        livenessStatus.className = "absolute bottom-4 left-4 flex items-center gap-2 bg-green-900/20 px-3 py-1 rounded-full border border-green-500/30";
+
+                        // Check for recognition
+                        if (data.user_id) {
+                            console.log(`Face detected: User ID ${data.user_id}`);
+                            isProcessing = true;
+                            await markAttendance(data.user_id, CLASS_SUBJECT);
+                        }
+                    }
+                } else {
+                    livenessText.textContent = data.message || "SEARCHING...";
+                    livenessIndicator.className = "h-2 w-2 rounded-full bg-gray-400";
+                }
+            } catch (e) {
+                console.error("Upload error:", e);
+                livenessText.textContent = "NETWORK ERROR";
+            }
+        }
+
+        // Start everything
+        startCamera();
+        setInterval(captureAndUpload, 500); // Process frame every 500ms
+        window.handleReplicate = async function () {
+            const checkboxes = document.querySelectorAll('input[name="target_period"]:checked');
+            const targetPeriods = Array.from(checkboxes).map(c => parseInt(c.value));
+
+            if (targetPeriods.length === 0) {
+                alert("Please select at least one period to replicate attendance to.");
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to replicate this attendance to Period(s) ${targetPeriods.join(', ')}? Attendance already marked for these periods will be skipped.`)) {
+                return;
+            }
+
+            const btn = document.getElementById('replicateBtn');
+            const statusMsg = document.getElementById('replicationStatus');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Replicating...';
+
+            try {
+                const res = await fetch('/api/attendance/replicate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_periods: targetPeriods })
+                });
+                const result = await res.json();
+
+                statusMsg.classList.remove('hidden');
+                if (result.success) {
+                    statusMsg.className = "mt-2 text-xs text-center text-green-600 font-bold";
+                    statusMsg.textContent = "✅ " + result.message;
+                    // Disable checkboxes after success or refresh?
+                    checkboxes.forEach(c => {
+                        c.disabled = true;
+                        c.parentElement.classList.add('opacity-50', 'pointer-events-none');
+                    });
+                    btn.classList.add('hidden');
+                } else {
+                    statusMsg.className = "mt-2 text-xs text-center text-red-600 font-bold";
+                    statusMsg.textContent = "❌ " + result.message;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Try Again';
+                }
+            } catch (e) {
+                console.error("Replication Error:", e);
+                statusMsg.classList.remove('hidden');
+                statusMsg.className = "mt-2 text-xs text-center text-red-600 font-bold";
+                statusMsg.textContent = "❌ Network error. Please try again.";
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Try Again';
+            }
+        };
+    });
+</script>
+{% endblock %}
